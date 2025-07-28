@@ -133,6 +133,10 @@ jobs:
           # 返回应用根目录
           cd /var/www/hdbpilot-admin
           
+          # 创建日志目录
+          echo "创建日志目录..."
+          mkdir -p shared/logs
+          
           # 创建软链接
           echo "创建软链接..."
           rm -f current

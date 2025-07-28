@@ -14,9 +14,9 @@ module.exports = {
         PORT: 3000,
         NEXT_PUBLIC_API_URL: 'http://localhost:8080' // 将会被nginx代理
       },
-      error_file: '/var/log/pm2/hdbpilot-admin-error.log',
-      out_file: '/var/log/pm2/hdbpilot-admin-out.log',
-      log_file: '/var/log/pm2/hdbpilot-admin.log',
+      error_file: '/var/www/hdbpilot-admin/shared/logs/error.log',
+      out_file: '/var/www/hdbpilot-admin/shared/logs/out.log',
+      log_file: '/var/www/hdbpilot-admin/shared/logs/combined.log',
       time: true,
       // 自动重启配置
       autorestart: true,
