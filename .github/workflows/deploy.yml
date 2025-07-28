@@ -1,0 +1,134 @@
+name: 部署到 EC2
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 安装依赖
+      run: npm ci
+      
+    - name: 代码检查
+      run: npm run lint
+      
+    - name: 构建项目
+      run: npm run build
+      env:
+        NEXT_PUBLIC_API_URL: http://your-domain.com  # 替换为您的域名或IP
+        
+    - name: 创建部署包
+      run: |
+        tar -czf deploy.tar.gz \
+          .next \
+          public \
+          package.json \
+          package-lock.json \
+          next.config.ts \
+          ecosystem.config.js
+          
+    - name: 部署到 EC2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.EC2_SSH_PORT || 22 }}
+        script: |
+          # 创建应用目录
+          sudo mkdir -p /var/www/hdbpilot-admin
+          sudo chown $USER:$USER /var/www/hdbpilot-admin
+          
+          # 备份当前版本（如果存在）
+          if [ -d "/var/www/hdbpilot-admin/current" ]; then
+            sudo mv /var/www/hdbpilot-admin/current /var/www/hdbpilot-admin/backup-$(date +%Y%m%d-%H%M%S)
+          fi
+          
+          # 创建新版本目录
+          mkdir -p /var/www/hdbpilot-admin/releases/$(date +%Y%m%d-%H%M%S)
+          
+    - name: 上传构建文件
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.EC2_SSH_PORT || 22 }}
+        source: "deploy.tar.gz"
+        target: "/var/www/hdbpilot-admin/"
+        
+    - name: 解压并启动服务
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.EC2_SSH_PORT || 22 }}
+        script: |
+          cd /var/www/hdbpilot-admin
+          
+          # 解压新版本
+          RELEASE_DIR="releases/$(date +%Y%m%d-%H%M%S)"
+          tar -xzf deploy.tar.gz -C $RELEASE_DIR
+          
+          # 安装生产依赖
+          cd $RELEASE_DIR
+          npm ci --only=production
+          
+          # 创建软链接到当前版本
+          cd /var/www/hdbpilot-admin
+          ln -sfn $RELEASE_DIR current
+          
+          # 重启 PM2 应用
+          pm2 restart hdbpilot-admin || pm2 start current/ecosystem.config.js
+          
+          # 重新加载 nginx 配置
+          sudo nginx -t && sudo systemctl reload nginx
+          
+          # 清理旧版本（保留最近5个版本）
+          ls -t releases/ | tail -n +6 | xargs -I {} rm -rf releases/{}
+          
+          # 清理部署文件
+          rm -f deploy.tar.gz
+          
+    - name: 健康检查
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.EC2_SSH_PORT || 22 }}
+        script: |
+          # 等待服务启动
+          sleep 10
+          
+          # 检查服务状态
+          if pm2 show hdbpilot-admin | grep -q "online"; then
+            echo "✅ 应用部署成功，服务正在运行"
+          else
+            echo "❌ 应用部署失败，服务未正常启动"
+            pm2 logs hdbpilot-admin --lines 20
+            exit 1
+          fi
+          
+          # 检查 nginx 状态
+          if sudo systemctl is-active nginx | grep -q "active"; then
+            echo "✅ Nginx 服务正常"
+          else
+            echo "❌ Nginx 服务异常"
+            exit 1
+          fi 
