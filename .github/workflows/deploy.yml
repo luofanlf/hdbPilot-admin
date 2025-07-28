@@ -50,16 +50,14 @@ jobs:
         port: ${{ secrets.EC2_SSH_PORT || 22 }}
         script: |
           # 创建应用目录
-          sudo mkdir -p /var/www/hdbpilot-admin
-          sudo chown $USER:$USER /var/www/hdbpilot-admin
+          sudo mkdir -p /var/www/hdbpilot-admin/releases
+          sudo mkdir -p /var/www/hdbpilot-admin/shared
+          sudo chown -R $USER:$USER /var/www/hdbpilot-admin
           
           # 备份当前版本（如果存在）
-          if [ -d "/var/www/hdbpilot-admin/current" ]; then
-            sudo mv /var/www/hdbpilot-admin/current /var/www/hdbpilot-admin/backup-$(date +%Y%m%d-%H%M%S)
+          if [ -L "/var/www/hdbpilot-admin/current" ]; then
+            rm /var/www/hdbpilot-admin/current
           fi
-          
-          # 创建新版本目录
-          mkdir -p /var/www/hdbpilot-admin/releases/$(date +%Y%m%d-%H%M%S)
           
     - name: 上传构建文件
       uses: appleboy/scp-action@v0.1.7
@@ -79,31 +77,98 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         port: ${{ secrets.EC2_SSH_PORT || 22 }}
         script: |
+          set -e
+          echo "=== 开始部署 ==="
+          
+          # 进入应用目录
+          cd /var/www/hdbpilot-admin
+          pwd
+          ls -la
+          
+          # 创建时间戳和目录
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          echo "时间戳: $TIMESTAMP"
+          
+          # 确保releases目录存在
+          echo "创建releases目录..."
+          mkdir -p releases
+          
+          # 创建完整路径的新版本目录
+          NEW_RELEASE="/var/www/hdbpilot-admin/releases/$TIMESTAMP"
+          echo "创建新版本目录: $NEW_RELEASE"
+          mkdir -p "$NEW_RELEASE"
+          
+          # 验证目录是否创建成功
+          if [ ! -d "$NEW_RELEASE" ]; then
+            echo "错误: 无法创建目录 $NEW_RELEASE"
+            exit 1
+          fi
+          
+          # 解压文件
+          echo "解压部署文件到: $NEW_RELEASE"
+          tar -xzf deploy.tar.gz -C "$NEW_RELEASE" --strip-components=0
+          
+          # 进入新版本目录
+          cd "$NEW_RELEASE"
+          echo "当前目录: $(pwd)"
+          echo "目录内容:"
+          ls -la
+          
+          # 检查必要文件
+          if [ ! -f "package.json" ]; then
+            echo "错误: package.json 文件不存在"
+            exit 1
+          fi
+          
+          # 处理package-lock.json
+          if [ ! -f "package-lock.json" ]; then
+            echo "生成 package-lock.json..."
+            npm install --package-lock-only
+          fi
+          
+          # 安装依赖
+          echo "安装生产依赖..."
+          npm install --production
+          
+          # 返回应用根目录
           cd /var/www/hdbpilot-admin
           
-          # 解压新版本
-          RELEASE_DIR="releases/$(date +%Y%m%d-%H%M%S)"
-          tar -xzf deploy.tar.gz -C $RELEASE_DIR
+          # 创建软链接
+          echo "创建软链接..."
+          rm -f current
+          ln -sf "releases/$TIMESTAMP" current
           
-          # 安装生产依赖
-          cd $RELEASE_DIR
-          npm ci --only=production
+          # 验证软链接
+          if [ ! -L "current" ]; then
+            echo "错误: 软链接创建失败"
+            exit 1
+          fi
           
-          # 创建软链接到当前版本
-          cd /var/www/hdbpilot-admin
-          ln -sfn $RELEASE_DIR current
+          # PM2 管理
+          echo "管理PM2进程..."
+          pm2 stop hdbpilot-admin 2>/dev/null || echo "没有找到运行中的进程"
+          pm2 delete hdbpilot-admin 2>/dev/null || echo "没有找到要删除的进程"
           
-          # 重启 PM2 应用
-          pm2 restart hdbpilot-admin || pm2 start current/ecosystem.config.js
+          # 启动应用
+          echo "启动新应用..."
+          if [ -f "current/ecosystem.config.js" ]; then
+            pm2 start current/ecosystem.config.js
+            pm2 save
+          else
+            echo "错误: ecosystem.config.js 文件不存在"
+            exit 1
+          fi
           
-          # 重新加载 nginx 配置
+          # 检查nginx并重新加载
+          echo "重新加载nginx..."
           sudo nginx -t && sudo systemctl reload nginx
           
-          # 清理旧版本（保留最近5个版本）
-          ls -t releases/ | tail -n +6 | xargs -I {} rm -rf releases/{}
+          # 清理
+          echo "清理旧版本和部署文件..."
+          cd releases && ls -t | tail -n +6 | xargs -I {} rm -rf {} 2>/dev/null || true
+          cd /var/www/hdbpilot-admin && rm -f deploy.tar.gz
           
-          # 清理部署文件
-          rm -f deploy.tar.gz
+          echo "=== 部署完成 ==="
           
     - name: 健康检查
       uses: appleboy/ssh-action@v1.0.3
