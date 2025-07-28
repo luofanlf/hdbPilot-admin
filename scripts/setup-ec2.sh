@@ -31,7 +31,8 @@ sudo npm install -g pm2
 # 配置 PM2 开机自启
 echo "⚙️ 配置 PM2 开机自启..."
 pm2 startup
-sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u $USER --hp /home/$USER
+# 注意：这个命令会输出一个sudo命令，需要手动执行
+echo "⚠️  请手动执行 PM2 输出的 sudo 命令来完成开机自启配置"
 
 # 创建应用目录
 echo "📁 创建应用目录..."
