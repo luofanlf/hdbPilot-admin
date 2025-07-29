@@ -9,7 +9,7 @@ export default function SignupPage() {
 
   const handleSignup = async (username: string, password: string, confirmPassword: string) => {
     try {
-      const response = await fetch("http://localhost:8080/api/user/register", {
+      const response = await fetch("/api/user/register", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({username, password, confirmPassword}),
