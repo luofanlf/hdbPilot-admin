@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 检查当前登录状态的函数
   const checkAuth = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/user/current', {
+      const response = await fetch('/api/user/current', {
         method: 'GET',
         credentials: 'include', // 重要：包含 cookie
       })
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 登出函数
   const logout = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/user/logout', {
+      const response = await fetch('/api/user/logout', {
         method: 'POST',
         credentials: 'include',
       })
