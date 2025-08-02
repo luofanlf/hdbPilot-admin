@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* app/globals.css */
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
 
 @custom-variant dark (&:is(.dark *));
 
