@@ -5,14 +5,7 @@ import { UserCardTable } from '@/components/user-table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import EditUserDialog from '@/components/EditUserDialog';
-
-export interface User {
-  id: number;
-  username: string;
-  nickname: string;
-  email: string;
-  createdAt: string;
-}
+import { User } from '@/types';
 
 export default function AdminUserPage() {
   const [users, setUsers] = useState<User[]>([]);

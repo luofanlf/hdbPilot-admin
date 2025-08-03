@@ -3,15 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
-
-export interface User {
-  id: number;
-  username: string;
-  nickname: string;
-  email: string;
-  createdAt: string;
-}
-
+import { User } from '@/types';
 
 interface UserCardTableProps {
   users: User[];
