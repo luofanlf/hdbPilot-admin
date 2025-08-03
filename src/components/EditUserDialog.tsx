@@ -10,18 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, ChangeEvent } from "react";
+import { User } from "@/types";
 
-// Predefined user type
-export interface User {
-  id: number;
-  username: string;
-  nickname: string;
-  email: string;
-  createdAt: string;
-}
-
-// Editable form type (excludes createdAt, fields allow empty strings)
-type EditableUser = {
+// Editable form type excludes createdAt
+export type EditableUser = {
   id: number;
   username: string;
   nickname: string;
@@ -32,7 +24,7 @@ interface EditUserDialogProps {
   open: boolean;
   onClose: () => void;
   user: User | null;
-  onSave: (updatedUser: EditableUser) => void;
+  onSave: (updatedUser: User) => void;  // 注意这里用 User 类型匹配 AdminUserPage 的 onSave
 }
 
 export default function EditUserDialog({
@@ -41,37 +33,42 @@ export default function EditUserDialog({
   user,
   onSave,
 }: EditUserDialogProps) {
-  const [formData, setFormData] = useState<EditableUser>({
+  // 初始表单，使用 User 类型的可选字段构造，避免 null 报错
+  const [formData, setFormData] = useState<User>({
     id: 0,
     username: '',
-    email: '',
     nickname: '',
+    email: '',
+    createdAt: '',  // 需要给默认值避免 undefined 报错
   });
 
   useEffect(() => {
     if (user) {
       setFormData({
         id: user.id,
-        username: user.username ?? '',
-        email: user.email ?? '',
-        nickname: user.nickname ?? '',
+        username: user.username || '',
+        nickname: user.nickname || '',
+        email: user.email || '',
+        createdAt: user.createdAt || '',
       });
     } else {
-      // If user is null, reset to initial empty state to prevent passing null
+      // 重置为空用户
       setFormData({
         id: 0,
         username: '',
-        email: '',
         nickname: '',
+        email: '',
+        createdAt: '',
       });
     }
   }, [user]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = () => {

@@ -31,13 +31,13 @@ export default function AdminUserPage() {
     setCurrentPage(pageData.current);
     setTotalPages(pageData.pages);
 
-    // 可选：翻页时清空当前选中状态（如需保留可注释）
+    // Optional: clear selection when page changes (commented out if want to keep)
     // setSelectedIds([]);
   };
 
   useEffect(() => {
     fetchUsers(currentPage, searchKeyword);
-  }, [currentPage]);
+  }, [currentPage, searchKeyword]); // Added searchKeyword dependency
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -48,7 +48,7 @@ export default function AdminUserPage() {
   const handleSearch = () => {
     fetchUsers(1, searchKeyword);
     setCurrentPage(1);
-    // 可选：搜索后清空选中状态
+    // Optional: clear selection after search
     // setSelectedIds([]);
   };
 
@@ -79,15 +79,11 @@ export default function AdminUserPage() {
     );
   };
 
-  // 全选时，累加当前页所有用户 id 到 selectedIds
-  // 取消全选时，移除当前页所有用户 id
   const handleToggleSelectAll = (checked: boolean) => {
     const currentPageUserIds = users.map(user => user.id);
     if (checked) {
-      // 合并之前已选 ids 和当前页 ids，避免重复
       setSelectedIds((prev) => Array.from(new Set([...prev, ...currentPageUserIds])));
     } else {
-      // 移除当前页用户 ids
       setSelectedIds((prev) => prev.filter(id => !currentPageUserIds.includes(id)));
     }
   };
@@ -119,12 +115,12 @@ export default function AdminUserPage() {
     }
   };
 
-  const handleOpenEdit = (user: any) => {
+  const handleOpenEdit = (user: User) => {
     setUserToEdit(user);
     setEditDialogOpen(true);
   };
 
-  const handleSaveEdit = async (editedUser: any) => {
+  const handleSaveEdit = async (editedUser: User) => {
     try {
       const res = await fetch('/api/admin/user/update', {
         method: 'POST',
@@ -139,7 +135,7 @@ export default function AdminUserPage() {
       } else {
         alert(result.message || 'Failed to update user.');
       }
-    } catch (err) {
+    } catch (_err) {
       alert('Error occurred during update.');
     } finally {
       setEditDialogOpen(false);
