@@ -6,14 +6,22 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import EditUserDialog from '@/components/EditUserDialog';
 
+export interface User {
+  id: number;
+  username: string;
+  nickname: string;
+  email: string;
+  createdAt: string;
+}
+
 export default function AdminUserPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [userToEdit, setUserToEdit] = useState<any>(null);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const pageSize = 10;
 
   const fetchUsers = async (page: number, keyword = '') => {

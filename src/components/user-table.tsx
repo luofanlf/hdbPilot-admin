@@ -4,8 +4,17 @@ import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
 
+export interface User {
+  id: number;
+  username: string;
+  nickname: string;
+  email: string;
+  createdAt: string;
+}
+
+
 interface UserCardTableProps {
-  users: any[];
+  users: User[];
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
   onToggleSelectAll: (checked: boolean) => void;
@@ -14,7 +23,7 @@ interface UserCardTableProps {
   totalPages: number;
   onPageChange: (page: number) => void;
   onDeleteUser: (id: number) => void;
-  onEditUser: (user: any) => void;
+  onEditUser: (user: User) => void;
 }
 
 export function UserCardTable({
@@ -39,10 +48,10 @@ export function UserCardTable({
     }
   }, [selectedIds, users.length]);
 
-  // 点击全选框时，切换全选/取消全选
   const handleToggleSelectAll = () => {
-    const isAllSelected = users.length > 0 && users.every(user => selectedIds.includes(user.id));
-    onToggleSelectAll(!isAllSelected); // 反转选中状态
+    const isAllSelected =
+      users.length > 0 && users.every((user) => selectedIds.includes(user.id));
+    onToggleSelectAll(!isAllSelected);
   };
 
   return (
