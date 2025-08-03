@@ -30,7 +30,7 @@ export default function LoginPage() {
         login()
         
         // 跳转到首页
-        router.push("/")
+        router.push("/admin/users")
       } else {
         // 失败：code != 0
         setError(data.message || "登录失败")
