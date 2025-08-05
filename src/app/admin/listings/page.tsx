@@ -32,12 +32,13 @@ export default function PropertyManagerPage() {
   // 获取房源列表
   const fetchProperties = async (page: number, title = '', town = '') => {
     const params = {
-      pageNum: page,
-      pageSize,
+      pageNum: String(page),
+      pageSize: String(pageSize),
       listingTitle: title,
       town: town,
     };
-    const res = await fetch('/api/property/search?' + new URLSearchParams(params as any).toString());
+    const searchParams = new URLSearchParams(params);
+    const res = await fetch('/api/property/search?' + searchParams.toString());
     const data = await res.json();
     const pageData = data.data;
     setProperties(pageData.records || []);
@@ -73,7 +74,7 @@ export default function PropertyManagerPage() {
       } else {
         alert(result.message || 'Delete failed');
       }
-    } catch (error) {
+    } catch {
       alert('Error occurred while deleting');
     }
   };
@@ -111,7 +112,7 @@ export default function PropertyManagerPage() {
       } else {
         alert(result.message || 'Batch delete failed');
       }
-    } catch (error) {
+    } catch {
       alert('Error occurred during batch delete');
     }
   };
@@ -135,7 +136,7 @@ export default function PropertyManagerPage() {
       } else {
         alert(result.message || 'Update failed');
       }
-    } catch (_err) {
+    } catch {
       alert('Error occurred during update');
     } finally {
       setEditDialogOpen(false);
