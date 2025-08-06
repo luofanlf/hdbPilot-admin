@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
 const navItems = [
-  { href: '/admin', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+  { href: '/admin/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
   { href: '/admin/users', label: 'Manage Users', icon: 'fas fa-users' },
   { href: '/admin/listings', label: 'Manage Listings', icon: 'fas fa-home' },
   { href: '/admin/analytics', label: 'Analytics', icon: 'fas fa-chart-line' },
