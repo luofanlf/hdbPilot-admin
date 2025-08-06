@@ -51,9 +51,9 @@ export function SignupForm({
   }
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
+      <Card className="bg-white shadow-lg border-gray-200">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">Welcome back</CardTitle>
+          <CardTitle className="text-xl text-gray-900">Create Account</CardTitle>
           {/* <CardDescription>
             Login with your Apple or Google account
           </CardDescription> */}
@@ -61,57 +61,60 @@ export function SignupForm({
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="grid gap-6">
-              <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
-                <span className="bg-card text-muted-foreground relative z-10 px-2">
+              <div className="after:border-gray-300 relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
+                <span className="bg-white text-gray-500 relative z-10 px-2">
                   Continue with
                 </span>
               </div>
               <div className="grid gap-6">
                 <div className="grid gap-3">
-                  <Label htmlFor="username">Username</Label>
+                  <Label htmlFor="username" className="text-gray-700">Username</Label>
                   <Input
                     id="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
+                    className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
                 <div className="grid gap-3">
                   <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className="text-gray-700">Password</Label>
                     <a
                       href="#"
-                      className="ml-auto text-sm underline-offset-4 hover:underline"
+                      className="ml-auto text-sm underline-offset-4 hover:underline text-blue-600"
                     >
                     </a>
                   </div>
-                  <Input id="password" type="password" value={password} onChange={(e)=>setPassword(e.target.value)}required />
+                  <Input id="password" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} required 
+                  className="border-gray-300 focus:border-blue-500 focus:ring-blue-500" />
                 </div>
                 <div className="grid gap-3">
                   <div className="flex items-center">
-                    <Label htmlFor="password">ConfirmPassword</Label>
+                    <Label htmlFor="password" className="text-gray-700">ConfirmPassword</Label>
                     <a
                       href="#"
-                      className="ml-auto text-sm underline-offset-4 hover:underline"
+                      className="ml-auto text-sm underline-offset-4 hover:underline text-blue-600"
                     >
                     </a>
                   </div>
                   <Input id="confirmPassword" type="password" value={confirmPassword} 
-                  onChange={(e)=>setConfirmPassword(e.target.value)} required />
+                  onChange={(e)=>setConfirmPassword(e.target.value)} required 
+                  className="border-gray-300 focus:border-blue-500 focus:ring-blue-500" />
                   {error && (
                     <div className="text-sm text-red-600 mt-1">
                       {error}
                     </div>
                   )}
                 </div>
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                   Sign up
                 </Button>
               </div>
-              <div className="text-center text-sm">
+              <div className="text-center text-sm text-gray-600">
                 Already have an account?{" "}
-                <a href="/login" className="underline underline-offset-4">
+                <a href="/" className="underline underline-offset-4 text-blue-600 hover:text-blue-700">
                   log in
                 </a>
               </div>
@@ -119,9 +122,9 @@ export function SignupForm({
           </form>
         </CardContent>
       </Card>
-      <div className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-        By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
-        and <a href="#">Privacy Policy</a>.
+      <div className="text-gray-500 *:[a]:hover:text-blue-600 text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
+        By clicking continue, you agree to our <a href="#" className="text-blue-600">Terms of Service</a>{" "}
+        and <a href="#" className="text-blue-600">Privacy Policy</a>.
       </div>
     </div>
   )

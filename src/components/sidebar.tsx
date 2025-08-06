@@ -11,7 +11,7 @@ const navItems = [
   { href: '/admin/analytics', label: 'Analytics', icon: 'fas fa-chart-line' },
   { href: '/admin/reviews', label: 'Reviews', icon: 'fas fa-comments' },
   { href: '/admin/settings', label: 'Settings', icon: 'fas fa-cog' },
-  { href: '/logout', label: 'Logout', icon: 'fas fa-sign-out-alt' },
+  { href: '/', label: 'Logout', icon: 'fas fa-sign-out-alt' },
 ];
 
 export default function Sidebar() {

@@ -24,8 +24,8 @@ export default function Navbar() {
       // 加载中状态：显示占位内容，避免页面闪烁
       return (
         <NavigationMenuItem>
-          <NavigationMenuLink className="hover:text-accent-foreground text-base">
-            <Button variant="outline" disabled>
+          <NavigationMenuLink className="hover:text-blue-400 text-base">
+            <Button variant="outline" disabled className="border-gray-300 text-gray-500">
               加载中...
             </Button>
           </NavigationMenuLink>
@@ -38,7 +38,7 @@ export default function Navbar() {
       return (
         <>
           <NavigationMenuItem>
-            <NavigationMenuLink className="hover:text-accent-foreground text-base px-3">
+            <NavigationMenuLink className="hover:text-blue-400 text-base px-3 text-gray-700">
               Welcome, {user.username}
             </NavigationMenuLink>
           </NavigationMenuItem>
@@ -47,7 +47,7 @@ export default function Navbar() {
               <Button 
                 variant="outline" 
                 onClick={logout}
-                className="cursor-pointer"
+                className="cursor-pointer border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Logout
               </Button>
@@ -61,15 +61,15 @@ export default function Navbar() {
         <>
           <NavigationMenuItem>
             <NavigationMenuLink asChild>
-              <Link href="/login" className="hover:text-accent-foreground text-base">
-                <Button variant="outline">Log in</Button>
+              <Link href="/" className="hover:text-blue-600 text-base">
+                <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">Log in</Button>
               </Link>
             </NavigationMenuLink>
           </NavigationMenuItem>
           <NavigationMenuItem>
             <NavigationMenuLink asChild>
-              <Link href="/signup" className="hover:text-accent-foreground text-base">
-                <Button>Sign up</Button>
+              <Link href="/signup" className="hover:text-blue-600 text-base">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">Sign up</Button>
               </Link>
             </NavigationMenuLink>
           </NavigationMenuItem>
@@ -79,25 +79,21 @@ export default function Navbar() {
   }
 
   return (
-    <div className="w-full border-b px-6 pt-2.5 pb-1">
+    <div className="w-full border-b border-gray-200 bg-white px-6 pt-2.5 pb-1 shadow-sm">
       <div className="flex items-baseline justify-between w-full">
         <NavigationMenu>
           <NavigationMenuList>
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link href="/" className="hover:text-accent-foreground">
-                  <b className="text-3xl">HDBPilot</b>
+                <Link href="/" className="hover:text-blue-600">
+                  <b className="text-3xl font-bold text-gray-900">
+                    HDB<span className="text-blue-600">Pilot</span>
+                  </b>
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link href="/start" className="hover:text-accent-foreground text-base">
-                  start
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+           
 
             
           </NavigationMenuList>
