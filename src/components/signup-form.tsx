@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useState } from "react"
+import Link from "next/link"
 
 export function SignupForm({
   className,
@@ -81,11 +81,11 @@ export function SignupForm({
                 <div className="grid gap-3">
                   <div className="flex items-center">
                     <Label htmlFor="password" className="text-gray-700">Password</Label>
-                    <a
+                    <Link
                       href="#"
                       className="ml-auto text-sm underline-offset-4 hover:underline text-blue-600"
                     >
-                    </a>
+                    </Link>
                   </div>
                   <Input id="password" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} required 
                   className="border-gray-300 focus:border-blue-500 focus:ring-blue-500" />
@@ -93,11 +93,11 @@ export function SignupForm({
                 <div className="grid gap-3">
                   <div className="flex items-center">
                     <Label htmlFor="password" className="text-gray-700">ConfirmPassword</Label>
-                    <a
+                    <Link
                       href="#"
                       className="ml-auto text-sm underline-offset-4 hover:underline text-blue-600"
                     >
-                    </a>
+                    </Link>
                   </div>
                   <Input id="confirmPassword" type="password" value={confirmPassword} 
                   onChange={(e)=>setConfirmPassword(e.target.value)} required 
@@ -114,17 +114,17 @@ export function SignupForm({
               </div>
               <div className="text-center text-sm text-gray-600">
                 Already have an account?{" "}
-                <a href="/" className="underline underline-offset-4 text-blue-600 hover:text-blue-700">
+                <Link href="/" className="underline underline-offset-4 text-blue-600 hover:text-blue-700">
                   log in
-                </a>
+                </Link>
               </div>
             </div>
           </form>
         </CardContent>
       </Card>
       <div className="text-gray-500 *:[a]:hover:text-blue-600 text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-        By clicking continue, you agree to our <a href="#" className="text-blue-600">Terms of Service</a>{" "}
-        and <a href="#" className="text-blue-600">Privacy Policy</a>.
+        By clicking continue, you agree to our <Link href="#" className="text-blue-600">Terms of Service</Link>{" "}
+        and <Link href="#" className="text-blue-600">Privacy Policy</Link>.
       </div>
     </div>
   )
