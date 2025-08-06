@@ -135,7 +135,7 @@ export default function AdminUserPage() {
       } else {
         alert(result.message || 'Failed to update user.');
       }
-    } catch (_err) {
+    } catch {
       alert('Error occurred during update.');
     } finally {
       setEditDialogOpen(false);

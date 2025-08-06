@@ -35,7 +35,7 @@ export default function Home() {
         // 失败：code != 0
         setError(data.message || "登录失败")
       }
-    } catch (error) {
+    } catch {
       setError("Network error")
     }
   }
