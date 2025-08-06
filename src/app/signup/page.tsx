@@ -20,7 +20,7 @@ export default function SignupPage() {
       if (data.code === 0) {
         console.log("Signup success", data.data)
         // 注册成功后跳转到登录页
-        router.push("/login")
+        router.push("/")
       } else {
         setError(data.message || "Signup failed")
       }
@@ -30,10 +30,12 @@ export default function SignupPage() {
   }
   
   return (
-    <div className="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+    <div className="bg-gray-50 flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
         <a href="#" className="flex items-center gap-2 self-center font-medium">
-          <p className="text-2xl">HDBPilot</p>
+          <p className="text-3xl font-bold text-gray-900">
+            HDB<span className="text-blue-600">Pilot</span>
+          </p>
         </a>
         <SignupForm onSignup={handleSignup} error={error} onError={setError}/>
       </div>
