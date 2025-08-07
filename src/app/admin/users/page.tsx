@@ -12,7 +12,8 @@ export default function AdminUserPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // 输入框的值
+  const [searchKeyword, setSearchKeyword] = useState(''); // 真正搜索用的关键词
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const pageSize = 10;
@@ -30,14 +31,11 @@ export default function AdminUserPage() {
     setUsers(pageData.records);
     setCurrentPage(pageData.current);
     setTotalPages(pageData.pages);
-
-    // Optional: clear selection when page changes (commented out if want to keep)
-    // setSelectedIds([]);
   };
 
   useEffect(() => {
     fetchUsers(currentPage, searchKeyword);
-  }, [currentPage, searchKeyword]); // Added searchKeyword dependency
+  }, [currentPage, searchKeyword]);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -46,10 +44,8 @@ export default function AdminUserPage() {
   };
 
   const handleSearch = () => {
-    fetchUsers(1, searchKeyword);
-    setCurrentPage(1);
-    // Optional: clear selection after search
-    // setSelectedIds([]);
+    setSearchKeyword(searchInput); 
+    setCurrentPage(1); 
   };
 
   const handleDeleteUser = async (id: number) => {
@@ -153,8 +149,8 @@ export default function AdminUserPage() {
           <Input
             type="text"
             placeholder="Search by username or email..."
-            value={searchKeyword}
-            onChange={(e) => setSearchKeyword(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSearch();
             }}
