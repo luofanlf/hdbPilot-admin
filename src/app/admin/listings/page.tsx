@@ -29,7 +29,7 @@ export default function PropertyManagerPage() {
   const [propertyToEdit, setPropertyToEdit] = useState<Property | null>(null);
   const pageSize = 10;
 
-  // 获取房源列表
+  // Fetch property listings with robust error handling and GET method
   const fetchProperties = async (page: number, title = '', town = '') => {
     const params = {
       pageNum: String(page),
@@ -38,12 +38,53 @@ export default function PropertyManagerPage() {
       town: town,
     };
     const searchParams = new URLSearchParams(params);
-    const res = await fetch('/api/property/search?' + searchParams.toString());
-    const data = await res.json();
-    const pageData = data.data;
-    setProperties(pageData.records || []);
-    setCurrentPage(pageData.current || 1);
-    setTotalPages(pageData.pages || 1);
+    try {
+      const res = await fetch('/api/property/search?' + searchParams.toString(), {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        console.error('Failed to parse JSON from /api/property/search:', jsonErr);
+        setProperties([]);
+        setCurrentPage(1);
+        setTotalPages(1);
+        return;
+      }
+      console.log('property search response:', data);
+      if (!res.ok) {
+        console.error('API returned non-OK status:', res.status, data);
+        setProperties([]);
+        setCurrentPage(1);
+        setTotalPages(1);
+        return;
+      }
+      if (!data || typeof data !== 'object') {
+        console.error('API response is not an object:', data);
+        setProperties([]);
+        setCurrentPage(1);
+        setTotalPages(1);
+        return;
+      }
+      if (!data.data || typeof data.data !== 'object') {
+        console.error('API response missing .data or .data is not object:', data);
+        setProperties([]);
+        setCurrentPage(1);
+        setTotalPages(1);
+        return;
+      }
+      const pageData = data.data;
+      setProperties(Array.isArray(pageData.records) ? pageData.records : []);
+      setCurrentPage(typeof pageData.current === 'number' ? pageData.current : 1);
+      setTotalPages(typeof pageData.pages === 'number' ? pageData.pages : 1);
+    } catch (err) {
+      console.error('Error fetching properties:', err);
+      setProperties([]);
+      setCurrentPage(1);
+      setTotalPages(1);
+    }
   };
 
   useEffect(() => {
