@@ -1,295 +1,185 @@
-'use client';
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import { Property } from '@/types';
+import React, { useEffect, useState } from 'react'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts'
 
-interface PageResponse<T> {
-  records: T[];
-  total: number;
-  current: number;
-  size: number;
+interface DashboardStats {
+  totalListings: number
+  activeListings: number
+  soldListings: number
+  listingGrowth: number | null
+  totalUsers: number
+  pendingListings: number
 }
 
-const hdbTowns = [
-  "Ang Mo Kio", "Bedok", "Bishan", "Bukit Batok", "Bukit Merah", "Bukit Panjang", "Bukit Timah",
-  "Central Area", "Choa Chu Kang", "Clementi", "Geylang", "Hougang", "Jurong East", "Jurong West",
-  "Kallang/Whampoa", "Marine Parade", "Pasir Ris", "Punggol", "Queenstown", "Sembawang", "Sengkang",
-  "Serangoon", "Tampines", "Toa Payoh", "Woodlands", "Yishun"
-];
+interface MonthlyListingCount {
+  month: string // format: '2025-01'
+  count: number
+}
 
-const PendingPropertyTable: React.FC = () => {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [current, setCurrent] = useState(1);
-  const [pageSize] = useState(5);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [hoverImgUrl, setHoverImgUrl] = useState<string | null>(null);
-  const [hoverImgPos, setHoverImgPos] = useState<{ x: number; y: number } | null>(null);
+interface ListingStatusCount {
+  status: string
+  count: number
+}
 
-  const [sellerIdKeyword, setSellerIdKeyword] = useState('');
-  const [addressKeyword, setAddressKeyword] = useState('');
-  const [filterTown, setFilterTown] = useState('');
-  const [filterBedroom, setFilterBedroom] = useState('');
-  const [filterBathroom, setFilterBathroom] = useState('');
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#a4de6c']
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const response = await fetch('/api/admin/property/list_pending', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pageNum: current,
-          pageSize,
-          sellerId: sellerIdKeyword,
-          address: addressKeyword,
-          town: filterTown,
-          bedroomNumber: filterBedroom || null,
-          bathroomNumber: filterBathroom || null,
-        }),
-      });
+// 补全 1-12 月数据，缺失的月份用 0 补上
+function fillMissingMonths(data: MonthlyListingCount[], year: number): MonthlyListingCount[] {
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const monthStr = `${year}-${(i + 1).toString().padStart(2, '0')}`
+    return { month: monthStr, count: 0 }
+  })
+  const dataMap = new Map(data.map(d => [d.month, d.count]))
+  return months.map(m => ({
+    month: m.month,
+    count: dataMap.get(m.month) ?? 0,
+  }))
+}
 
-      if (!response.ok) throw new Error('Failed to fetch data');
-
-      const result = await response.json();
-
-      const page: PageResponse<Property> = result.data ?? {
-        records: [],
-        total: 0,
-        current: 1,
-        size: pageSize,
-      };
-
-      setProperties(page.records);
-      setTotal(page.total);
-    } catch (err) {
-      console.error('Error fetching pending properties:', err);
-      setError('Failed to load data. Please try again.');
-      setProperties([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  const handleSearch = () => {
-    setCurrent(1);
-    fetchData();
-  };
-
-  const handleReview = async (id: number, approved: boolean) => {
-    try {
-      const response = await fetch('/api/admin/property/review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, approved }),
-      });
-      if (!response.ok) throw new Error('Review failed');
-      fetchData();
-    } catch (err) {
-      console.error('Error reviewing property:', err);
-      alert('Failed to review. Please try again.');
-    }
-  };
+export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [monthlyCounts, setMonthlyCounts] = useState<MonthlyListingCount[]>([])
+  const [statusCounts, setStatusCounts] = useState<ListingStatusCount[]>([])
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
+  const [years, setYears] = useState<number[]>([])
 
   useEffect(() => {
-    fetchData();
-  }, [current]);
+    fetch('/api/admin/dashboard/stats')
+      .then(res => res.ok ? res.json() : Promise.reject('Stats fetch failed'))
+      .then(data => setStats(data))
+      .catch(error => console.error('Error fetching dashboard stats:', error))
+  }, [])
 
-  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString();
+  useEffect(() => {
+    fetch(`/api/admin/dashboard/charts?year=${selectedYear}`)
+      .then(res => res.ok ? res.json() : Promise.reject('Chart data fetch failed'))
+      .then(data => {
+        const filled = fillMissingMonths(data.monthlyCounts, selectedYear)
+        setMonthlyCounts(filled)
+        setStatusCounts(data.statusCounts)
+      })
+      .catch(error => console.error('Error fetching chart data:', error))
+  }, [selectedYear])
 
-  const handleMouseEnter = (event: React.MouseEvent, url: string) => {
-    const rect = (event.target as HTMLElement).getBoundingClientRect();
-    setHoverImgUrl(url);
-    setHoverImgPos({ x: rect.right + 10, y: rect.top });
-  };
+  useEffect(() => {
+    const currentYear = new Date().getFullYear()
+    const yearList = []
+    for (let y = currentYear; y >= 2020; y--) yearList.push(y)
+    setYears(yearList)
+  }, [])
 
-  const handleMouseLeave = () => {
-    setHoverImgUrl(null);
-    setHoverImgPos(null);
-  };
+  if (!stats) return <div>Loading...</div>
+
+  const formattedGrowth = (() => {
+    if (stats.listingGrowth == null) return 'N/A'
+    if (stats.listingGrowth === 0) return 'No change from last month'
+    const sign = stats.listingGrowth > 0 ? '+' : ''
+    return `${sign}${stats.listingGrowth.toFixed(2)}% from last month`
+  })()
 
   return (
-    <div className="p-6 bg-white rounded shadow overflow-x-auto relative">
-      <h2 className="text-xl font-bold mb-4">Pending Property Listings</h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-        <input
-          type="text"
-          placeholder="Seller ID"
-          className="border p-2 rounded"
-          value={sellerIdKeyword}
-          onChange={(e) => setSellerIdKeyword(e.target.value)}
-        />
-
-        <input
-          type="text"
-          placeholder="Address"
-          className="border p-2 rounded"
-          value={addressKeyword}
-          onChange={(e) => setAddressKeyword(e.target.value)}
-        />
-
-        <select
-          className="border p-2 rounded"
-          value={filterTown}
-          onChange={(e) => setFilterTown(e.target.value)}
-        >
-          <option value="">All Towns</option>
-          {hdbTowns.map((town) => (
-            <option key={town} value={town}>{town}</option>
-          ))}
-        </select>
-
-        <select
-          className="border p-2 rounded"
-          value={filterBedroom}
-          onChange={(e) => setFilterBedroom(e.target.value)}
-        >
-          <option value="">All Bedrooms</option>
-          {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
-
-        <select
-          className="border p-2 rounded"
-          value={filterBathroom}
-          onChange={(e) => setFilterBathroom(e.target.value)}
-        >
-          <option value="">All Bathrooms</option>
-          {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
-
-        <button
-          className="col-span-full md:col-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-          onClick={handleSearch}
-        >
-          Search
-        </button>
+    <div className="p-4 space-y-12">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <StatCard title="Total Listings" value={stats.totalListings} icon="fas fa-home" color="text-blue-600" subtitle={formattedGrowth} />
+        <StatCard title="Active Listings" value={stats.activeListings} icon="fas fa-check-circle" color="text-green-500" subtitle="Currently available" />
+        <StatCard title="Sold Listings" value={stats.soldListings} icon="fas fa-tag" color="text-red-500" subtitle="This month" />
+        <StatCard title="Total Users" value={stats.totalUsers} icon="fas fa-users" color="text-purple-500" subtitle="System-wide" />
+        <StatCard title="Pending Listings" value={stats.pendingListings} icon="fas fa-clock" color="text-yellow-500" subtitle="Awaiting approval" />
       </div>
 
-      {error && <p className="text-red-500 text-center mb-4">{error}</p>}
-
-      <div className="min-w-[1200px]">
-        <table className="min-w-full table-auto border border-collapse text-sm whitespace-nowrap">
-          <thead className="bg-gray-100 sticky top-0">
-            <tr>
-              <th className="px-3 py-2">Image</th>
-              <th className="px-3 py-2">Title</th>
-              <th className="px-3 py-2">Seller ID</th>
-              <th className="px-3 py-2">Town</th>
-              <th className="px-3 py-2">Address</th>
-              <th className="px-3 py-2">Bedrooms</th>
-              <th className="px-3 py-2">Bathrooms</th>
-              <th className="px-3 py-2">Unit Info</th>
-              <th className="px-3 py-2">Flat Model</th>
-              <th className="px-3 py-2">Resale Price</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Updated</th>
-              <th className="px-3 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={13} className="text-center py-4">Loading...</td>
-              </tr>
-            ) : properties.length === 0 ? (
-              <tr>
-                <td colSpan={13} className="text-center py-4">No pending listings found.</td>
-              </tr>
-            ) : (
-              properties.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="px-3 py-2">
-                    {p.imageList && p.imageList.length > 0 ? (
-                      <img
-                        src={p.imageList[0].imageUrl}
-                        alt="thumb"
-                        className="w-12 h-12 object-cover rounded cursor-pointer"
-                        onMouseEnter={(e) => handleMouseEnter(e, p.imageList[0].imageUrl)}
-                        onMouseLeave={handleMouseLeave}
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">
-                        No Image
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{p.listingTitle}</td>
-                  <td className="px-3 py-2">{p.sellerId}</td>
-                  <td className="px-3 py-2">{p.town}</td>
-                  <td className="px-3 py-2">{`${p.block} ${p.streetName} ${p.postalCode}`}</td>
-                  <td className="px-3 py-2">{p.bedroomNumber}</td>
-                  <td className="px-3 py-2">{p.bathroomNumber}</td>
-                  <td className="px-3 py-2">{`${p.storey} / ${p.floorAreaSqm} m² / ${p.topYear}`}</td>
-                  <td className="px-3 py-2">{p.flatModel}</td>
-                  <td className="px-3 py-2">${p.resalePrice?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-yellow-600">{p.status}</td>
-                  <td className="px-3 py-2">{formatDate(p.updatedAt)}</td>
-                  <td className="px-3 py-2 space-x-1">
-                    <button
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
-                      onClick={() => handleReview(p.id, true)}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
-                      onClick={() => handleReview(p.id, false)}
-                    >
-                      Reject
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex justify-between items-center mt-4 text-sm">
-        <button
-          className="px-3 py-1 bg-gray-200 rounded"
-          disabled={current === 1}
-          onClick={() => setCurrent((prev) => Math.max(prev - 1, 1))}
-        >
-          Previous
-        </button>
-        <span>Page {current} of {Math.ceil(total / pageSize)}</span>
-        <button
-          className="px-3 py-1 bg-gray-200 rounded"
-          disabled={current >= Math.ceil(total / pageSize)}
-          onClick={() => setCurrent((prev) => prev + 1)}
-        >
-          Next
-        </button>
-      </div>
-
-      {hoverImgUrl && hoverImgPos && (
-        <div
-          className="fixed z-50 border border-gray-300 rounded shadow-lg"
-          style={{
-            top: hoverImgPos.y,
-            left: hoverImgPos.x,
-            width: 300,
-            height: 200,
-            backgroundColor: 'white',
-          }}
-          onMouseLeave={handleMouseLeave}
-        >
-          <img
-            src={hoverImgUrl}
-            alt="preview"
-            className="w-full h-full object-contain rounded"
-            draggable={false}
-          />
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Line Chart */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Monthly Listing Submissions</h2>
+            <select
+              className="border rounded px-2 py-1"
+              value={selectedYear}
+              onChange={e => setSelectedYear(Number(e.target.value))}
+            >
+              {years.map(y => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={monthlyCounts}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Line type="monotone" dataKey="count" stroke="#8884d8" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-      )}
-    </div>
-  );
-};
 
-export default PendingPropertyTable;
+        {/* Pie Chart */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Listing Approval Status Distribution</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={statusCounts}
+                dataKey="count"
+                nameKey="status"
+                outerRadius={100}
+                label
+              >
+                {statusCounts.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Stat Card
+function StatCard({
+  title,
+  value,
+  icon,
+  color,
+  subtitle,
+}: {
+  title: string
+  value: number
+  icon: string
+  color: string
+  subtitle: string
+}) {
+  return (
+    <div className="rounded-xl shadow-lg p-6 bg-white">
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-lg font-semibold">{title}</div>
+        <div className={`text-3xl ${color}`}>
+          <i className={icon}></i>
+        </div>
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-sm text-gray-500 mt-2">{subtitle}</div>
+    </div>
+  )
+}
