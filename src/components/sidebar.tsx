@@ -18,7 +18,6 @@ const navItems = [
     ],
   },
   { href: '/admin/reviews', label: 'Reviews', icon: 'fas fa-comments' },
-  { href: '/admin/settings', label: 'Settings', icon: 'fas fa-cog' },
   { href: '/', label: 'Logout', icon: 'fas fa-sign-out-alt' },
 ];
 
