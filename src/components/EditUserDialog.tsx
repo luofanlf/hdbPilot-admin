@@ -82,18 +82,27 @@ export default function EditUserDialog({
           <DialogTitle>Edit User</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+           <label className="block text-sm font-medium text-gray-700 mb-1">
+            Username
+          </label>
           <Input
             name="username"
             placeholder="Username"
             value={formData.username}
             onChange={handleChange}
           />
+           <label className="block text-sm font-medium text-gray-700 mb-1">
+            Nickname
+          </label>
           <Input
             name="nickname"
             placeholder="Nickname"
             value={formData.nickname}
             onChange={handleChange}
           />
+           <label className="block text-sm font-medium text-gray-700 mb-1">
+            Email
+          </label>
           <Input
             name="email"
             placeholder="Email"
