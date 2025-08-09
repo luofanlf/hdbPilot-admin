@@ -47,7 +47,7 @@ jobs:
           path: deploy.tar.gz
 
   deploy:
-    name: 部署到 EC2（仅 push 到 main）
+    name: deploy to ec2
     needs: ci
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
