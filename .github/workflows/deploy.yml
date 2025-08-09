@@ -2,202 +2,219 @@ name: 部署到 EC2
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
 
 jobs:
-  build-and-deploy:
+  ci:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
-      
-    - name: 设置 Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        
-    - name: 安装依赖
-      run: npm ci
-      
-    - name: 代码检查
-      run: npm run lint
-      
-    - name: 构建项目
-      run: npm run build
-      env:
-        NEXT_PUBLIC_API_URL: ${{ secrets.EC2_HOST }}  # 使用secrets中的EC2地址
-        
-    - name: 创建部署包
-      run: |
-        tar -czf deploy.tar.gz \
-          .next \
-          public \
-          package.json \
-          package-lock.json \
-          next.config.ts \
-          ecosystem.config.js
-          
-    - name: 部署到 EC2
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.EC2_SSH_PORT || 22 }}
-        script: |
-          # 创建应用目录
-          sudo mkdir -p /var/www/hdbpilot-admin/releases
-          sudo mkdir -p /var/www/hdbpilot-admin/shared
-          sudo chown -R $USER:$USER /var/www/hdbpilot-admin
-          
-          # 备份当前版本（如果存在）
-          if [ -L "/var/www/hdbpilot-admin/current" ]; then
-            rm /var/www/hdbpilot-admin/current
-          fi
-          
-    - name: 上传构建文件
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.EC2_SSH_PORT || 22 }}
-        source: "deploy.tar.gz"
-        target: "/var/www/hdbpilot-admin/"
-        
-    - name: 解压并启动服务
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.EC2_SSH_PORT || 22 }}
-        script: |
-          set -e
-          echo "=== 开始部署 ==="
-          
-          # 进入应用目录
-          cd /var/www/hdbpilot-admin
-          pwd
-          ls -la
-          
-          # 创建时间戳和目录
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          echo "时间戳: $TIMESTAMP"
-          
-          # 确保releases目录存在
-          echo "创建releases目录..."
-          mkdir -p releases
-          
-          # 创建完整路径的新版本目录
-          NEW_RELEASE="/var/www/hdbpilot-admin/releases/$TIMESTAMP"
-          echo "创建新版本目录: $NEW_RELEASE"
-          mkdir -p "$NEW_RELEASE"
-          
-          # 验证目录是否创建成功
-          if [ ! -d "$NEW_RELEASE" ]; then
-            echo "错误: 无法创建目录 $NEW_RELEASE"
-            exit 1
-          fi
-          
-          # 解压文件
-          echo "解压部署文件到: $NEW_RELEASE"
-          tar -xzf deploy.tar.gz -C "$NEW_RELEASE" --strip-components=0
-          
-          # 进入新版本目录
-          cd "$NEW_RELEASE"
-          echo "当前目录: $(pwd)"
-          echo "目录内容:"
-          ls -la
-          
-          # 检查必要文件
-          if [ ! -f "package.json" ]; then
-            echo "错误: package.json 文件不存在"
-            exit 1
-          fi
-          
-          # 处理package-lock.json
-          if [ ! -f "package-lock.json" ]; then
-            echo "生成 package-lock.json..."
-            npm install --package-lock-only
-          fi
-          
-          # 安装依赖
-          echo "安装生产依赖..."
-          npm install --production
-          
-          # 返回应用根目录
-          cd /var/www/hdbpilot-admin
-          
-          # 创建日志目录
-          echo "创建日志目录..."
-          mkdir -p shared/logs
-          
-          # 创建软链接
-          echo "创建软链接..."
-          rm -f current
-          ln -sf "releases/$TIMESTAMP" current
-          
-          # 验证软链接
-          if [ ! -L "current" ]; then
-            echo "错误: 软链接创建失败"
-            exit 1
-          fi
-          
-          # PM2 管理
-          echo "管理PM2进程..."
-          pm2 stop hdbpilot-admin 2>/dev/null || echo "没有找到运行中的进程"
-          pm2 delete hdbpilot-admin 2>/dev/null || echo "没有找到要删除的进程"
-          
-          # 启动应用
-          echo "启动新应用..."
-          if [ -f "current/ecosystem.config.js" ]; then
-            pm2 start current/ecosystem.config.js
-            pm2 save
-          else
-            echo "错误: ecosystem.config.js 文件不存在"
-            exit 1
-          fi
-          
-          # 检查nginx并重新加载
-          echo "重新加载nginx..."
-          sudo nginx -t && sudo systemctl reload nginx
-          
-          # 清理
-          echo "清理旧版本和部署文件..."
-          cd releases && ls -t | tail -n +6 | xargs -I {} rm -rf {} 2>/dev/null || true
-          cd /var/www/hdbpilot-admin && rm -f deploy.tar.gz
-          
-          echo "=== 部署完成 ==="
-          
-    - name: 健康检查
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.EC2_SSH_PORT || 22 }}
-        script: |
-          # 等待服务启动
-          sleep 10
-          
-          # 检查服务状态
-          if pm2 show hdbpilot-admin | grep -q "online"; then
-            echo "✅ 应用部署成功，服务正在运行"
-          else
-            echo "❌ 应用部署失败，服务未正常启动"
-            pm2 logs hdbpilot-admin --lines 20
-            exit 1
-          fi
-          
-          # 检查 nginx 状态
-          if sudo systemctl is-active nginx | grep -q "active"; then
-            echo "✅ Nginx 服务正常"
-          else
-            echo "❌ Nginx 服务异常"
-            exit 1
-          fi 
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 代码检查
+        run: npm run lint
+
+      - name: 构建项目
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.EC2_HOST }}
+
+      - name: 创建部署包
+        run: |
+          tar -czf deploy.tar.gz \
+            .next \
+            public \
+            package.json \
+            package-lock.json \
+            next.config.ts \
+            ecosystem.config.js
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: deploy.tar.gz
+
+  deploy:
+    name: 部署到 EC2（仅 push 到 main）
+    needs: ci
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: .
+
+      - name: 初始化部署目录
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          script: |
+            # 创建应用目录
+            sudo mkdir -p /var/www/hdbpilot-admin/releases
+            sudo mkdir -p /var/www/hdbpilot-admin/shared
+            sudo chown -R $USER:$USER /var/www/hdbpilot-admin
+
+            # 备份当前版本（如果存在软链则先移除，稍后重建）
+            if [ -L "/var/www/hdbpilot-admin/current" ]; then
+              rm /var/www/hdbpilot-admin/current
+            fi
+
+      - name: 上传构建文件
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          source: "deploy.tar.gz"
+          target: "/var/www/hdbpilot-admin/"
+
+      - name: 解压并启动服务
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          script: |
+            set -e
+            echo "=== 开始部署 ==="
+
+            # 进入应用目录
+            cd /var/www/hdbpilot-admin
+            pwd
+            ls -la
+
+            # 创建时间戳和目录
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            echo "时间戳: $TIMESTAMP"
+
+            # 确保releases目录存在
+            echo "创建releases目录..."
+            mkdir -p releases
+
+            # 创建完整路径的新版本目录
+            NEW_RELEASE="/var/www/hdbpilot-admin/releases/$TIMESTAMP"
+            echo "创建新版本目录: $NEW_RELEASE"
+            mkdir -p "$NEW_RELEASE"
+
+            # 验证目录是否创建成功
+            if [ ! -d "$NEW_RELEASE" ]; then
+              echo "错误: 无法创建目录 $NEW_RELEASE"
+              exit 1
+            fi
+
+            # 解压文件
+            echo "解压部署文件到: $NEW_RELEASE"
+            tar -xzf deploy.tar.gz -C "$NEW_RELEASE" --strip-components=0
+
+            # 进入新版本目录
+            cd "$NEW_RELEASE"
+            echo "当前目录: $(pwd)"
+            echo "目录内容:"
+            ls -la
+
+            # 检查必要文件
+            if [ ! -f "package.json" ]; then
+              echo "错误: package.json 文件不存在"
+              exit 1
+            fi
+
+            # 处理package-lock.json
+            if [ ! -f "package-lock.json" ]; then
+              echo "生成 package-lock.json..."
+              npm install --package-lock-only
+            fi
+
+            # 安装依赖
+            echo "安装生产依赖..."
+            npm install --production
+
+            # 返回应用根目录
+            cd /var/www/hdbpilot-admin
+
+            # 创建日志目录
+            echo "创建日志目录..."
+            mkdir -p shared/logs
+
+            # 创建软链接
+            echo "创建软链接..."
+            rm -f current
+            ln -sf "releases/$TIMESTAMP" current
+
+            # 验证软链接
+            if [ ! -L "current" ]; then
+              echo "错误: 软链接创建失败"
+              exit 1
+            fi
+
+            # PM2 管理
+            echo "管理PM2进程..."
+            pm2 stop hdbpilot-admin 2>/dev/null || echo "没有找到运行中的进程"
+            pm2 delete hdbpilot-admin 2>/dev/null || echo "没有找到要删除的进程"
+
+            # 启动应用
+            echo "启动新应用..."
+            if [ -f "current/ecosystem.config.js" ]; then
+              pm2 start current/ecosystem.config.js
+              pm2 save
+            else
+              echo "错误: ecosystem.config.js 文件不存在"
+              exit 1
+            fi
+
+            # 检查nginx并重新加载
+            echo "重新加载nginx..."
+            sudo nginx -t && sudo systemctl reload nginx
+
+            # 清理
+            echo "清理旧版本和部署文件..."
+            cd releases && ls -t | tail -n +6 | xargs -I {} rm -rf {} 2>/dev/null || true
+            cd /var/www/hdbpilot-admin && rm -f deploy.tar.gz
+
+            echo "=== 部署完成 ==="
+
+      - name: 健康检查
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          script: |
+            # 等待服务启动
+            sleep 10
+
+            # 检查服务状态
+            if pm2 show hdbpilot-admin | grep -q "online"; then
+              echo "✅ 应用部署成功，服务正在运行"
+            else
+              echo "❌ 应用部署失败，服务未正常启动"
+              pm2 logs hdbpilot-admin --lines 20
+              exit 1
+            fi
+
+            # 检查 nginx 状态
+            if sudo systemctl is-active nginx | grep -q "active"; then
+              echo "✅ Nginx 服务正常"
+            else
+              echo "❌ Nginx 服务异常"
+              exit 1
+            fi 
