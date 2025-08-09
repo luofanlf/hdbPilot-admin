@@ -290,49 +290,86 @@ export default function PropertyManagerPage() {
 
       {/* Edit Dialog */}
       {editDialogOpen && propertyToEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow w-[400px]">
-            <h2 className="text-lg font-bold mb-4">Edit Listing</h2>
-            <div className="space-y-2">
-              <Input
-                value={propertyToEdit.listingTitle}
-                onChange={e => setPropertyToEdit({ ...propertyToEdit, listingTitle: e.target.value })}
-                placeholder="Title"
-              />
-              <Input
-                value={propertyToEdit.town}
-                onChange={e => setPropertyToEdit({ ...propertyToEdit, town: e.target.value })}
-                placeholder="Region"
-              />
-              <Input
-                value={propertyToEdit.block}
-                onChange={e => setPropertyToEdit({ ...propertyToEdit, block: e.target.value })}
-                placeholder="Block"
-              />
-              <Input
-                value={propertyToEdit.streetName}
-                onChange={e => setPropertyToEdit({ ...propertyToEdit, streetName: e.target.value })}
-                placeholder="Street"
-              />
-              <Input
-                value={propertyToEdit.postalCode}
-                onChange={e => setPropertyToEdit({ ...propertyToEdit, postalCode: e.target.value })}
-                placeholder="Postal Code"
-              />
-              <Input
-                type="number"
-                value={propertyToEdit.resalePrice}
-                onChange={e => setPropertyToEdit({ ...propertyToEdit, resalePrice: Number(e.target.value) })}
-                placeholder="Price"
-              />
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button onClick={() => handleSaveEdit(propertyToEdit)}>Save</Button>
-              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-            </div>
-          </div>
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded shadow w-[400px]">
+      <h2 className="text-lg font-bold mb-4">Edit Listing</h2>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Title
+          </label>
+          <Input
+            value={propertyToEdit.listingTitle}
+            onChange={e => setPropertyToEdit({ ...propertyToEdit, listingTitle: e.target.value })}
+            placeholder="Title"
+          />
         </div>
-      )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Region
+          </label>
+          <Input
+            value={propertyToEdit.town}
+            onChange={e => setPropertyToEdit({ ...propertyToEdit, town: e.target.value })}
+            placeholder="Region"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Block
+          </label>
+          <Input
+            value={propertyToEdit.block}
+            onChange={e => setPropertyToEdit({ ...propertyToEdit, block: e.target.value })}
+            placeholder="Block"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Street
+          </label>
+          <Input
+            value={propertyToEdit.streetName}
+            onChange={e => setPropertyToEdit({ ...propertyToEdit, streetName: e.target.value })}
+            placeholder="Street"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Postal Code
+          </label>
+          <Input
+            value={propertyToEdit.postalCode}
+            onChange={e => setPropertyToEdit({ ...propertyToEdit, postalCode: e.target.value })}
+            placeholder="Postal Code"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Price
+          </label>
+          <Input
+            type="number"
+            value={propertyToEdit.resalePrice}
+            onChange={e => setPropertyToEdit({ ...propertyToEdit, resalePrice: Number(e.target.value) })}
+            placeholder="Price"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 mt-4">
+        <Button onClick={() => handleSaveEdit(propertyToEdit)}>Save</Button>
+        <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
       );
 }
