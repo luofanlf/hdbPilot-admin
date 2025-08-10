@@ -4,4 +4,5 @@ export interface Review {
     content: string           // Comment.content
     createdAt: string         // Comment.createdAt（ISO 字符串）
     propertyId: string        // Comment.propertyId
+    userId: string            // Comment.userId
 }
