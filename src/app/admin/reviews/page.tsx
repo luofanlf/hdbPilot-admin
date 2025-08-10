@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Review } from '@/types/review'
 import { format } from 'date-fns'
 import { Loader2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 const REVIEWS_PER_PAGE = 5
 
@@ -18,38 +19,46 @@ export default function ReviewPage() {
     const [successMsg, setSuccessMsg] = useState<string | null>(null)
     const [showConfirm, setShowConfirm] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
+    const [searchTerm, setSearchTerm] = useState('')
+    const [jumpPage, setJumpPage] = useState('')
+    const [total, setTotal] = useState(0)
 
+    // Request backend paginated search API
     useEffect(() => {
         const fetchData = async () => {
+            setLoading(true)
+            setErrorMsg(null)
             try {
-                const res = await fetch('/api/comments')
-                const data = await res.json()
-                if (Array.isArray(data)) {
-                    setReviews(data)
-                } else {
-                    setReviews([])
-                    setErrorMsg('Failed to load reviews: data format error')
-                }
+                const query = new URLSearchParams({
+                    search: searchTerm,
+                    page: currentPage.toString(),
+                    size: REVIEWS_PER_PAGE.toString(),
+                })
+                const res = await fetch(`/api/comments?${query.toString()}`)
+                if (!res.ok) throw new Error(`Error: ${res.status}`)
+                const json = await res.json()
+                setReviews(json.data ?? [])
+                setTotal(json.total ?? 0)
+                setSelected(new Set())  // Reset selection on page/search change
             } catch (e) {
-                setErrorMsg('Failed to load reviews: network error')
+                setErrorMsg(e instanceof Error ? e.message : 'Unknown error')
+                setReviews([])
+                setTotal(0)
+            } finally {
+                setLoading(false)
             }
         }
         void fetchData()
-    }, [])
+    }, [searchTerm, currentPage])
 
-    const sortedReviews = Array.isArray(reviews)
-        ? [...reviews].sort((a, b) =>
-            sortDesc
-                ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        )
-        : []
-
-    const totalPages = Math.ceil(sortedReviews.length / REVIEWS_PER_PAGE)
-    const currentReviews = sortedReviews.slice(
-        (currentPage - 1) * REVIEWS_PER_PAGE,
-        currentPage * REVIEWS_PER_PAGE
+    // Sort within the current page data, does not affect pagination
+    const sortedReviews = [...reviews].sort((a, b) =>
+        sortDesc
+            ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     )
+
+    const totalPages = Math.ceil(total / REVIEWS_PER_PAGE)
 
     const toggleSelect = (id: string) => {
         const newSet = new Set(selected)
@@ -62,7 +71,7 @@ export default function ReviewPage() {
     }
 
     const toggleSelectAll = () => {
-        const idsOnCurrentPage = currentReviews.map(r => r.id)
+        const idsOnCurrentPage = sortedReviews.map(r => r.id)
         const isAllSelected = idsOnCurrentPage.every(id => selected.has(id))
 
         if (isAllSelected) {
@@ -96,15 +105,18 @@ export default function ReviewPage() {
                 throw new Error(`Delete failed with status code: ${res.status}`)
             }
 
-            const remaining = reviews.filter(r => !selected.has(r.id))
-            setReviews(remaining)
-            setSelected(new Set())
             setSuccessMsg('Selected reviews deleted successfully')
 
-            // Reset page if deleted all items on current page
-            if ((currentPage - 1) * REVIEWS_PER_PAGE >= remaining.length && currentPage > 1) {
-                setCurrentPage(currentPage - 1)
+            // After deletion, reload current page data (if no data on current page, go to previous page)
+            const newTotal = total - selected.size
+            const newTotalPages = Math.ceil(newTotal / REVIEWS_PER_PAGE)
+            if (currentPage > newTotalPages && newTotalPages > 0) {
+                setCurrentPage(newTotalPages)
+            } else {
+                // Trigger re-fetch on current page
+                setCurrentPage(currentPage)
             }
+            setSelected(new Set())
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Unknown error'
             setErrorMsg(message)
@@ -125,23 +137,40 @@ export default function ReviewPage() {
         setCurrentPage(prev => Math.min(totalPages, prev + 1))
     }
 
+    // Page jump handler
+    const handleJumpPage = () => {
+        const num = parseInt(jumpPage, 10)
+        if (!isNaN(num) && num >= 1 && num <= totalPages) {
+            setCurrentPage(num)
+        }
+    }
+
+    // Reset to first page when search term changes
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [searchTerm])
+
     return (
         <div className="p-6">
+            {/* Search bar */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold">User Reviews</h1>
                 <div className="flex gap-2 items-center">
-                    <Button variant="outline" onClick={() => setSortDesc(!sortDesc)}>
+                    <Input
+                        placeholder="Search content..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        className="w-48"
+                        disabled={loading}
+                    />
+                    <Button variant="outline" onClick={() => setSortDesc(!sortDesc)} disabled={loading}>
                         {sortDesc ? 'Sort Ascending' : 'Sort Descending'}
                     </Button>
-
                     {reviews.length > 0 && (
-                        <Button variant="outline" onClick={toggleSelectAll}>
-                            {currentReviews.every(r => selected.has(r.id))
-                                ? 'Unselect All'
-                                : 'Select All'}
+                        <Button variant="outline" onClick={toggleSelectAll} disabled={loading}>
+                            {sortedReviews.every(r => selected.has(r.id)) ? 'Unselect All' : 'Select All'}
                         </Button>
                     )}
-
                     {selected.size > 0 && (
                         <Button variant="destructive" onClick={onDeleteClick} disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -154,11 +183,13 @@ export default function ReviewPage() {
             {errorMsg && <p className="text-sm text-red-500 mt-2">{errorMsg}</p>}
             {successMsg && <p className="text-sm text-green-500 mt-2">{successMsg}</p>}
 
-            {currentReviews.length === 0 ? (
+            {loading && <p className="text-muted-foreground">Loading...</p>}
+
+            {sortedReviews.length === 0 && !loading ? (
                 <p className="text-muted-foreground">No reviews available</p>
             ) : (
                 <div className="space-y-4">
-                    {currentReviews.map((review) => (
+                    {sortedReviews.map(review => (
                         <div
                             key={review.id}
                             className="flex items-start border rounded-lg p-4 gap-4 shadow-sm"
@@ -166,10 +197,12 @@ export default function ReviewPage() {
                             <Checkbox
                                 checked={selected.has(review.id)}
                                 onCheckedChange={() => toggleSelect(review.id)}
+                                disabled={loading}
                             />
                             <div>
                                 <div className="flex items-center gap-4">
                                     <p className="font-medium text-base">Property ID: {review.propertyId}</p>
+                                    <p className="font-medium text-base">User ID: {review.userId}</p>
                                     <p className="text-sm text-muted-foreground">
                                         {format(new Date(review.createdAt), 'yyyy-MM-dd HH:mm')}
                                     </p>
@@ -182,17 +215,29 @@ export default function ReviewPage() {
                 </div>
             )}
 
-            {/* Pagination Controls */}
+            {/* Pagination controls */}
             {totalPages > 1 && (
                 <div className="mt-6 flex justify-center gap-4 items-center">
-                    <Button variant="outline" onClick={goToPrevPage} disabled={currentPage === 1}>
+                    <Button variant="outline" onClick={goToPrevPage} disabled={currentPage === 1 || loading}>
                         Previous
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                        Page {currentPage} of {totalPages}
-                    </span>
-                    <Button variant="outline" onClick={goToNextPage} disabled={currentPage === totalPages}>
+            Page {currentPage} of {totalPages}
+          </span>
+                    <Button variant="outline" onClick={goToNextPage} disabled={currentPage === totalPages || loading}>
                         Next
+                    </Button>
+
+                    {/* Jump to page input */}
+                    <Input
+                        placeholder="Go to page"
+                        value={jumpPage}
+                        onChange={e => setJumpPage(e.target.value)}
+                        className="w-20"
+                        disabled={loading}
+                    />
+                    <Button variant="outline" onClick={handleJumpPage} disabled={loading}>
+                        Go
                     </Button>
                 </div>
             )}
