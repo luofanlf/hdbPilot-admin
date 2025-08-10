@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 type Property = {
   id: number;
   listingTitle: string;
+  sellerId: number; // 新增
   town: string;
   block: string;
   streetName: string;
@@ -18,25 +19,24 @@ type Property = {
   status: string;
 };
 
+
 export default function PropertyManagerPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTitle, setSearchTitle] = useState('');
-  const [searchTown, setSearchTown] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [propertyToEdit, setPropertyToEdit] = useState<Property | null>(null);
   const pageSize = 10;
 
   // Fetch property listings with robust error handling and GET method
-  const fetchProperties = async (page: number, title = '', town = '') => {
-    const params = {
-      pageNum: String(page),
-      pageSize: String(pageSize),
-      listingTitle: title,
-      town: town,
-    };
+  const fetchProperties = async (page: number, title = '') => {
+  const params = {
+    pageNum: String(page),
+    pageSize: String(pageSize),
+    listingTitle: title,
+  };
     const searchParams = new URLSearchParams(params);
     try {
       const res = await fetch('/api/property/search?' + searchParams.toString(), {
@@ -88,8 +88,8 @@ export default function PropertyManagerPage() {
   };
 
   useEffect(() => {
-    fetchProperties(currentPage, searchTitle, searchTown);
-  }, [currentPage, searchTitle, searchTown]);
+    fetchProperties(currentPage, searchTitle);
+  }, [currentPage, searchTitle]);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -98,7 +98,7 @@ export default function PropertyManagerPage() {
   };
 
   const handleSearch = () => {
-    fetchProperties(1, searchTitle, searchTown);
+    fetchProperties(1, searchTitle);
     setCurrentPage(1);
   };
 
@@ -188,33 +188,35 @@ export default function PropertyManagerPage() {
     <div className="p-6 space-y-6">
       {/* Header Card */}
       <div className="bg-white rounded-lg shadow flex flex-col md:flex-row md:items-center justify-between px-6 py-4 mb-4">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2 md:mb-0">Manage Listings</h1>
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <Input
-            type="text"
-            placeholder="Search by title"
-            value={searchTitle}
-            onChange={(e) => setSearchTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSearch();
-            }}
-            className="w-56"
-          />
-          <Input
-            type="text"
-            placeholder="Search by region"
-            value={searchTown}
-            onChange={(e) => setSearchTown(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSearch();
-            }}
-            className="w-56"
-          />
-          <Button onClick={handleSearch} className="bg-blue-600 hover:bg-blue-700 text-white px-6">
-            Search
-          </Button>
-        </div>
-      </div>
+  <h1 className="text-2xl font-bold text-gray-800 mb-2 md:mb-0">Manage Listings</h1>
+  <div className="flex flex-col md:flex-row md:items-center gap-3">
+    <Input
+      type="text"
+      placeholder="Search by title"
+      value={searchTitle}
+      onChange={(e) => setSearchTitle(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') handleSearch();
+      }}
+      className="w-56"
+    />
+    
+    <Button onClick={handleSearch} className="bg-blue-600 hover:bg-blue-700 text-white px-6">
+      Search
+    </Button>
+
+    {/* ✅ 新增：Delete Selected 按钮 */}
+    <Button
+      variant="destructive"
+      onClick={handleDeleteSelected}
+      disabled={selectedIds.length === 0}
+      className="md:ml-4"
+    >
+      Delete Selected
+    </Button>
+  </div>
+</div>
+
 
       <div>
         <table className="w-full border-separate border-spacing-y-4">
@@ -228,6 +230,7 @@ export default function PropertyManagerPage() {
                 />
               </th>
               <th className="px-3 py-2">Title</th>
+              <th className="px-3 py-2">Seller ID</th>
               <th className="px-3 py-2">Region</th>
               <th className="px-3 py-2">Address</th>
               <th className="px-3 py-2">Bedrooms</th>
@@ -248,6 +251,7 @@ export default function PropertyManagerPage() {
                   />
                 </td>
                 <td className="px-3 py-4 font-semibold text-gray-800">{p.listingTitle}</td>
+                <td className="px-3 py-4">{p.sellerId}</td>
                 <td className="px-3 py-4">{p.town}</td>
                 <td className="px-3 py-4">{`${p.block} ${p.streetName} ${p.postalCode}`}</td>
                 <td className="px-3 py-4">{p.bedroomNumber}</td>
@@ -262,30 +266,28 @@ export default function PropertyManagerPage() {
             ))}
           </tbody>
         </table>
-        <div className="flex justify-between items-center mt-6">
-          <Button variant="destructive" onClick={handleDeleteSelected} disabled={selectedIds.length === 0}>
-            Delete Selected
-          </Button>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              disabled={currentPage === 1}
-              onClick={() => handlePageChange(currentPage - 1)}
-            >
-              Previous
-            </Button>
-            <span>
-              Page {currentPage} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              disabled={currentPage === totalPages}
-              onClick={() => handlePageChange(currentPage + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+        <div className="flex justify-center items-center mt-6">
+  <div className="flex items-center space-x-2">
+    <Button
+      variant="outline"
+      disabled={currentPage === 1}
+      onClick={() => handlePageChange(currentPage - 1)}
+    >
+      Previous
+    </Button>
+    <span>
+      Page {currentPage} / {totalPages}
+    </span>
+    <Button
+      variant="outline"
+      disabled={currentPage === totalPages}
+      onClick={() => handlePageChange(currentPage + 1)}
+    >
+      Next
+    </Button>
+  </div>
+</div>
+
       </div>
 
       {/* Edit Dialog */}
