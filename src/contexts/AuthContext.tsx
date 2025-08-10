@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.data === true) {
         // 只有后端确认登出成功，才清除前端状态
         setUser(null)
-        router.push('/login')
+        router.push('/')
       } else {
         console.error('登出失败:', data.message)
         // 可以显示错误提示给用户

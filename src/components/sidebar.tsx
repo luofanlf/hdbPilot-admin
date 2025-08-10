@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import clsx from 'clsx';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -18,18 +19,27 @@ const navItems = [
     ],
   },
   { href: '/admin/reviews', label: 'Reviews', icon: 'fas fa-comments' },
-  { href: '/', label: 'Logout', icon: 'fas fa-sign-out-alt' },
+  { label: 'Logout', icon: 'fas fa-sign-out-alt', action: 'logout' },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({});
+  const { logout } = useAuth();
 
   const toggleMenu = (key: string) => {
     setExpandedMenus((prev) => ({
       ...prev,
       [key]: !prev[key],
     }));
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('登出失败:', error);
+    }
   };
 
   return (
@@ -42,7 +52,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="space-y-3">
-        {navItems.map(({ href, label, icon, subItems, key }) => {
+        {navItems.map(({ href, label, icon, subItems, key, action }) => {
           const isExpanded = key ? expandedMenus[key] : false;
 
           if (subItems) {
@@ -86,6 +96,21 @@ export default function Sidebar() {
             );
           }
 
+          // 处理 logout 按钮
+          if (action === 'logout') {
+            return (
+              <button
+                key={label}
+                onClick={handleLogout}
+                className="flex items-center space-x-3 py-2 px-4 rounded-lg hover:bg-gray-700 transition w-full text-left"
+              >
+                <i className={`${icon} w-5`}></i>
+                <span>{label}</span>
+              </button>
+            );
+          }
+
+          // 处理普通导航链接
           return (
             href && (
               <Link
