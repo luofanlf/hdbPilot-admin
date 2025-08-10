@@ -110,7 +110,7 @@ export default function PropertyManagerPage() {
       const result = await res.json();
       if (result.code === 0 && result.data === true) {
         alert('Delete successful');
-        fetchProperties(currentPage, searchTitle, searchTown);
+        fetchProperties(currentPage, searchTitle);
         setSelectedIds((prev) => prev.filter((pid) => pid !== id));
       } else {
         alert(result.message || 'Delete failed');
@@ -148,7 +148,7 @@ export default function PropertyManagerPage() {
       const result = await res.json();
       if (result.code === 0 && result.data === true) {
         alert('Batch delete successful');
-        fetchProperties(currentPage, searchTitle, searchTown);
+        fetchProperties(currentPage, searchTitle);
         setSelectedIds([]);
       } else {
         alert(result.message || 'Batch delete failed');
@@ -173,7 +173,7 @@ export default function PropertyManagerPage() {
       const result = await res.json();
       if (result.code === 0 && result.data) {
         alert('Listing updated successfully');
-        fetchProperties(currentPage, searchTitle, searchTown);
+        fetchProperties(currentPage, searchTitle);
       } else {
         alert(result.message || 'Update failed');
       }
