@@ -19,11 +19,15 @@ export default function ReviewPage() {
     const [successMsg, setSuccessMsg] = useState<string | null>(null)
     const [showConfirm, setShowConfirm] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
+
+    // Separate input field value from actual search keyword
+    const [searchInput, setSearchInput] = useState('')
     const [searchTerm, setSearchTerm] = useState('')
+
     const [jumpPage, setJumpPage] = useState('')
     const [total, setTotal] = useState(0)
 
-    // Request backend paginated search API
+    // Fetch data from backend
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true)
@@ -39,7 +43,7 @@ export default function ReviewPage() {
                 const json = await res.json()
                 setReviews(json.data ?? [])
                 setTotal(json.total ?? 0)
-                setSelected(new Set())  // Reset selection on page/search change
+                setSelected(new Set()) // Clear selection when switching pages/searching
             } catch (e) {
                 setErrorMsg(e instanceof Error ? e.message : 'Unknown error')
                 setReviews([])
@@ -51,7 +55,6 @@ export default function ReviewPage() {
         void fetchData()
     }, [searchTerm, currentPage])
 
-    // Sort within the current page data, does not affect pagination
     const sortedReviews = [...reviews].sort((a, b) =>
         sortDesc
             ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -73,16 +76,13 @@ export default function ReviewPage() {
     const toggleSelectAll = () => {
         const idsOnCurrentPage = sortedReviews.map(r => r.id)
         const isAllSelected = idsOnCurrentPage.every(id => selected.has(id))
-
+        const newSet = new Set(selected)
         if (isAllSelected) {
-            const newSet = new Set(selected)
             idsOnCurrentPage.forEach(id => newSet.delete(id))
-            setSelected(newSet)
         } else {
-            const newSet = new Set(selected)
             idsOnCurrentPage.forEach(id => newSet.add(id))
-            setSelected(newSet)
         }
+        setSelected(newSet)
     }
 
     const onDeleteClick = () => {
@@ -100,20 +100,13 @@ export default function ReviewPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids: Array.from(selected) }),
             })
-
-            if (!res.ok) {
-                throw new Error(`Delete failed with status code: ${res.status}`)
-            }
-
+            if (!res.ok) throw new Error(`Delete failed with status code: ${res.status}`)
             setSuccessMsg('Selected reviews deleted successfully')
-
-            // After deletion, reload current page data (if no data on current page, go to previous page)
             const newTotal = total - selected.size
             const newTotalPages = Math.ceil(newTotal / REVIEWS_PER_PAGE)
             if (currentPage > newTotalPages && newTotalPages > 0) {
                 setCurrentPage(newTotalPages)
             } else {
-                // Trigger re-fetch on current page
                 setCurrentPage(currentPage)
             }
             setSelected(new Set())
@@ -137,7 +130,6 @@ export default function ReviewPage() {
         setCurrentPage(prev => Math.min(totalPages, prev + 1))
     }
 
-    // Page jump handler
     const handleJumpPage = () => {
         const num = parseInt(jumpPage, 10)
         if (!isNaN(num) && num >= 1 && num <= totalPages) {
@@ -145,10 +137,13 @@ export default function ReviewPage() {
         }
     }
 
-    // Reset to first page when search term changes
-    useEffect(() => {
+    // Search when clicking the button & when pressing Enter
+    const handleSearch = () => {
+        const keyword = searchInput.trim()
+        if (keyword === searchTerm) return // Avoid duplicate search
         setCurrentPage(1)
-    }, [searchTerm])
+        setSearchTerm(keyword)
+    }
 
     return (
         <div className="p-6">
@@ -158,11 +153,17 @@ export default function ReviewPage() {
                 <div className="flex gap-2 items-center">
                     <Input
                         placeholder="Search content..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter') handleSearch()
+                        }}
                         className="w-48"
                         disabled={loading}
                     />
+                    <Button variant="outline" onClick={handleSearch} disabled={loading}>
+                        Search
+                    </Button>
                     <Button variant="outline" onClick={() => setSortDesc(!sortDesc)} disabled={loading}>
                         {sortDesc ? 'Sort Ascending' : 'Sort Descending'}
                     </Button>
@@ -222,13 +223,11 @@ export default function ReviewPage() {
                         Previous
                     </Button>
                     <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </span>
+                        Page {currentPage} of {totalPages}
+                    </span>
                     <Button variant="outline" onClick={goToNextPage} disabled={currentPage === totalPages || loading}>
                         Next
                     </Button>
-
-                    {/* Jump to page input */}
                     <Input
                         placeholder="Go to page"
                         value={jumpPage}
@@ -263,3 +262,4 @@ export default function ReviewPage() {
         </div>
     )
 }
+
