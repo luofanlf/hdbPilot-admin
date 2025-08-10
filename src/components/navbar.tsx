@@ -32,7 +32,7 @@ export default function Navbar() {
       // 已登录状态：显示用户名和登出按钮
       return (
         <>
-          <NavigationMenuItem>
+          {/* <NavigationMenuItem>
             <NavigationMenuLink className="hover:text-blue-400 text-base px-3 text-gray-700">
               Welcome, {user.username}
             </NavigationMenuLink>
@@ -47,7 +47,7 @@ export default function Navbar() {
                 Logout
               </Button>
             </NavigationMenuLink>
-          </NavigationMenuItem>
+          </NavigationMenuItem> */}
         </>
       )
     } else {
@@ -61,13 +61,7 @@ export default function Navbar() {
               </Link>
             </NavigationMenuLink>
           </NavigationMenuItem>
-          <NavigationMenuItem>
-            <NavigationMenuLink asChild>
-              <Link href="/signup" className="hover:text-blue-600 text-base">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">Sign up</Button>
-              </Link>
-            </NavigationMenuLink>
-          </NavigationMenuItem>
+          
         </>
       )
     }
