@@ -28,12 +28,13 @@ jobs:
         with:
           config: p/default
           outputFormat: sarif
-          outputFile: semgrep-results.sarif
+          outputFile: ./semgrep-results.sarif
           
       - name: Upload SAST Results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: semgrep-results.sarif
+          sarif_file: ./semgrep-results.sarif
+          wait-for-processing: true
 
       - name: Run Dependency Check (npm audit)
         run: |
@@ -97,12 +98,15 @@ jobs:
           
       - name: Analyze Security Findings
         run: |
-          # This script would analyze the results and fail if critical issues are found
-          # For demo purposes, we'll just check if the file exists
           if [ -f "npm-audit.json" ]; then
             echo "Security scan results found"
-            # Add your custom logic to check for critical vulnerabilities
-            # Exit with error if critical issues are found
+            # Add vulnerability threshold check here
+            # Example: fail if critical vulnerabilities exist
+            CRITICAL_VULNS=$(jq '.metadata.vulnerabilities.critical // 0' npm-audit.json)
+            if [ "$CRITICAL_VULNS" -gt 0 ]; then
+              echo "Critical vulnerabilities found: $CRITICAL_VULNS"
+              exit 1
+            fi
           else
             echo "No security scan results found"
             exit 1
