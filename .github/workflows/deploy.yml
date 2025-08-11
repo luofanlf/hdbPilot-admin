@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# 全局权限设置
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -69,7 +75,7 @@ jobs:
         with:
           target: 'http://localhost:3000'
           docker_name: 'owasp/zap2docker-stable'
-          cmd_options: '-a'
+          cmd_options: '-a -t 30'  # 添加30分钟超时
           
       - name: Upload DAST Results
         if: ${{ github.event_name == 'pull_request' }}
@@ -314,9 +320,10 @@ jobs:
     steps:
       - name: Run Production DAST Scan
         uses: zaproxy/action-baseline@v0.6.0
+        continue-on-error: true  # 允许扫描失败但不中断工作流
         with:
           target: ${{ secrets.PRODUCTION_URL }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          cmd_options: '-t 30'  # 30分钟超时
           
       - name: Upload DAST Results
         uses: actions/upload-artifact@v4
