@@ -274,7 +274,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 2. 配置环境变量
 3. 自动部署
 
-## 常见问题
+## 常见issue
 
 ### 网络请求失败
 如果遇到 "Failed to fetch" 错误：
