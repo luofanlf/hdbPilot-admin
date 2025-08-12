@@ -114,9 +114,10 @@ jobs:
           path: deploy.tar.gz
 
   deploy:
-    name: Deploy to EC2
-    runs-on: ubuntu-latest
+    name: deploy to ec2
     needs: ci
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -132,9 +133,12 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT || 22 }}
           script: |
+            # Create application directories
             sudo mkdir -p /var/www/hdbpilot-admin/releases
             sudo mkdir -p /var/www/hdbpilot-admin/shared
             sudo chown -R $USER:$USER /var/www/hdbpilot-admin
+
+            # Backup current version (remove symlink if it exists, will recreate later)
             if [ -L "/var/www/hdbpilot-admin/current" ]; then
               rm /var/www/hdbpilot-admin/current
             fi
@@ -158,26 +162,103 @@ jobs:
           port: ${{ secrets.EC2_SSH_PORT || 22 }}
           script: |
             set -e
-            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-            NEW_RELEASE="/var/www/hdbpilot-admin/releases/$TIMESTAMP"
-            mkdir -p "$NEW_RELEASE"
-            tar -xzf deploy.tar.gz -C "$NEW_RELEASE" --strip-components=0
-            cd "$NEW_RELEASE"
-            [ ! -f "package-lock.json" ] && npm install --package-lock-only
-            npm install --production
+            echo "=== Starting Deployment ==="
+
+            # Go to application directory
             cd /var/www/hdbpilot-admin
+            pwd
+            ls -la
+
+            # Create timestamp and directory
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            echo "Timestamp: $TIMESTAMP"
+
+            # Ensure releases directory exists
+            echo "Creating releases directory..."
+            mkdir -p releases
+
+            # Create new release directory with full path
+            NEW_RELEASE="/var/www/hdbpilot-admin/releases/$TIMESTAMP"
+            echo "Creating new release directory: $NEW_RELEASE"
+            mkdir -p "$NEW_RELEASE"
+
+            # Verify directory creation
+            if [ ! -d "$NEW_RELEASE" ]; then
+              echo "Error: Failed to create directory $NEW_RELEASE"
+              exit 1
+            fi
+
+            # Extract files
+            echo "Extracting deployment files to: $NEW_RELEASE"
+            tar -xzf deploy.tar.gz -C "$NEW_RELEASE" --strip-components=0
+
+            # Enter new release directory
+            cd "$NEW_RELEASE"
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
+            ls -la
+
+            # Check required files
+            if [ ! -f "package.json" ]; then
+              echo "Error: package.json file not found"
+              exit 1
+            fi
+
+            # Handle package-lock.json
+            if [ ! -f "package-lock.json" ]; then
+              echo "Generating package-lock.json..."
+              npm install --package-lock-only
+            fi
+
+            # Install production dependencies
+            echo "Installing production dependencies..."
+            npm install --production
+
+            # Go back to application root
+            cd /var/www/hdbpilot-admin
+
+            # Create logs directory
+            echo "Creating logs directory..."
             mkdir -p shared/logs
+
+            # Create symlink
+            echo "Creating symlink..."
             rm -f current
             ln -sf "releases/$TIMESTAMP" current
-            pm2 stop hdbpilot-admin 2>/dev/null || true
-            pm2 delete hdbpilot-admin 2>/dev/null || true
-            pm2 start current/ecosystem.config.js
-            pm2 save
+
+            # Verify symlink
+            if [ ! -L "current" ]; then
+              echo "Error: Failed to create symlink"
+              exit 1
+            fi
+
+            # PM2 management
+            echo "Managing PM2 process..."
+            pm2 stop hdbpilot-admin 2>/dev/null || echo "No running process found"
+            pm2 delete hdbpilot-admin 2>/dev/null || echo "No process to delete"
+
+            # Start application
+            echo "Starting new application..."
+            if [ -f "current/ecosystem.config.js" ]; then
+              pm2 start current/ecosystem.config.js
+              pm2 save
+            else
+              echo "Error: ecosystem.config.js file not found"
+              exit 1
+            fi
+
+            # Check nginx and reload
+            echo "Reloading nginx..."
             sudo nginx -t && sudo systemctl reload nginx
-            cd releases && ls -t | tail -n +6 | xargs -I {} rm -rf {}
+
+            # Cleanup
+            echo "Cleaning up old releases and deployment file..."
+            cd releases && ls -t | tail -n +6 | xargs -I {} rm -rf {} 2>/dev/null || true
             cd /var/www/hdbpilot-admin && rm -f deploy.tar.gz
 
-      - name: Health Check
+            echo "=== Deployment Completed ==="
+
+      - name: Health check
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -185,17 +266,22 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT || 22 }}
           script: |
+            # Wait for the service to start
             sleep 10
+
+            # Check service status
             if pm2 show hdbpilot-admin | grep -q "online"; then
-              echo "✅ Application deployed successfully, service is running"
+              echo "✅ Application deployed successfully and is running"
             else
-              echo "❌ Application deployment failed"
+              echo "❌ Deployment failed, service not running"
               pm2 logs hdbpilot-admin --lines 20
               exit 1
             fi
+
+            # Check nginx status
             if sudo systemctl is-active nginx | grep -q "active"; then
-              echo "✅ Nginx service is running normally"
+              echo "✅ Nginx service is active"
             else
-              echo "❌ Nginx service is not active"
+              echo "❌ Nginx service is inactive"
               exit 1
             fi
