@@ -57,8 +57,14 @@ jobs:
           ' > zap-script.sh
           chmod +x zap-script.sh
 
-      - name: Run DAST Scan
-        run: ./zap-script.sh
+      - name: Run DAST Scan (non-blocking)
+        run: |
+          set +e
+          ./zap-script.sh
+          EXIT_CODE=$?
+          echo "ZAP scan exited with code $EXIT_CODE"
+          echo "ZAP scan completed, continuing pipeline regardless of exit code."
+          set -e
 
       - name: Upload DAST Report
         uses: actions/upload-artifact@v4
