@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { Property } from '@/types';
-import Image from 'next/image';
 
 interface PageResponse<T> {
   records: T[];
@@ -102,7 +101,6 @@ const PendingPropertyTable: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString();
@@ -247,7 +245,7 @@ const PendingPropertyTable: React.FC = () => {
                   <td className="px-3 py-2">
                     {p.imageList && p.imageList.length > 0 ? (
                       <div className="relative">
-                        <Image
+                        <img
                           src={p.imageList[0].imageUrl}
                           alt="Property thumbnail"
                           className="w-12 h-12 object-cover rounded cursor-pointer transition-transform hover:scale-105"
@@ -331,7 +329,7 @@ const PendingPropertyTable: React.FC = () => {
           }}
           onMouseLeave={handleMouseLeave}
         >
-          <Image
+          <img
             src={hoverImgUrl}
             alt="Preview"
             className="w-full h-full object-contain rounded"
@@ -370,7 +368,7 @@ const PendingPropertyTable: React.FC = () => {
             )}
             
             {/* Main image */}
-            <Image
+            <img
               src={viewerImages[viewerIndex]}
               alt={`Property image ${viewerIndex + 1}`}
               className="max-h-[85vh] max-w-[85vw] object-contain rounded shadow-lg"
