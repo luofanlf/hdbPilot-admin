@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Property } from '@/types';
 import Image from 'next/image';
 
@@ -34,11 +34,12 @@ const PendingPropertyTable: React.FC = () => {
   const [filterBedroom, setFilterBedroom] = useState('');
   const [filterBathroom, setFilterBathroom] = useState('');
 
+  // Image viewer state
   const [viewerImages, setViewerImages] = useState<string[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     setLoading(true);
     setError('');
     try {
@@ -77,7 +78,7 @@ const PendingPropertyTable: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [current, pageSize, sellerIdKeyword, addressKeyword, filterTown, filterBedroom, filterBathroom]);
+  };
 
   const handleSearch = () => {
     setCurrent(1);
@@ -101,7 +102,8 @@ const PendingPropertyTable: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
 
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString();
 
@@ -116,30 +118,39 @@ const PendingPropertyTable: React.FC = () => {
     setHoverImgPos(null);
   };
 
+  // Open image viewer when clicking on an image
   const openViewer = (images: string[], startIndex: number) => {
     setViewerImages(images);
     setViewerIndex(startIndex);
     setViewerOpen(true);
   };
 
+  // Close image viewer
   const closeViewer = () => {
     setViewerOpen(false);
     setViewerImages([]);
     setViewerIndex(0);
   };
 
+  // Navigate to previous image
   const prevImage = () => {
     setViewerIndex((prev) => (prev - 1 + viewerImages.length) % viewerImages.length);
   };
 
+  // Navigate to next image
   const nextImage = () => {
     setViewerIndex((prev) => (prev + 1) % viewerImages.length);
   };
 
+  // Handle keyboard navigation
   const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'ArrowLeft') prevImage();
-    else if (event.key === 'ArrowRight') nextImage();
-    else if (event.key === 'Escape') closeViewer();
+    if (event.key === 'ArrowLeft') {
+      prevImage();
+    } else if (event.key === 'ArrowRight') {
+      nextImage();
+    } else if (event.key === 'Escape') {
+      closeViewer();
+    }
   };
 
   return (
