@@ -1,4 +1,4 @@
-name: 部署到 EC2
+name: Deploy to EC2 (with SAST & DAST)
 
 on:
   push:
@@ -6,31 +6,108 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  VERSION_TAG: ${{ github.run_number }}-${{ github.sha }}
+
 jobs:
-  ci:
+  sast:
+    name: SAST Scanning
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 设置 Node.js
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint Security Scan
+        run: npx eslint . --max-warnings=0 --format html --output-file ./eslint-report.html || true
+
+      - name: Upload ESLint Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-report-${{ env.VERSION_TAG }}
+          path: ./eslint-report.html
+
+      - name: Download OWASP Dependency Check
+        run: |
+          wget https://github.com/dependency-check/DependencyCheck/releases/download/v12.1.1/dependency-check-12.1.1-release.zip
+          unzip dependency-check-12.1.1-release.zip
+
+      - name: Run SAST Scan
+        run: |
+          dependency-check/bin/dependency-check.sh \
+            --project "hdbpilot-admin" \
+            --nvdApiKey ${{ secrets.NVD_API_KEY }} \
+            --out . \
+            --scan .
+
+      - name: Upload SAST Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-report-${{ env.VERSION_TAG }}
+          path: ./dependency-check-report.html
+
+  dast:
+    name: DAST Scanning
+    runs-on: ubuntu-latest
+    needs: sast
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create ZAP Scan Script
+        run: |
+          echo '#!/bin/bash
+          docker pull zaproxy/zap-stable
+          docker run -i zaproxy/zap-stable zap-baseline.py \
+            -t "http://18.138.231.229/" \
+            -l PASS > zap_baseline_report.html
+          ' > zap-script.sh
+          chmod +x zap-script.sh
+
+      - name: Run DAST Scan (non-blocking)
+        run: |
+          set +e
+          ./zap-script.sh
+          EXIT_CODE=$?
+          echo "ZAP scan exited with code $EXIT_CODE"
+          echo "ZAP scan completed, continuing pipeline regardless of exit code."
+          set -e
+
+      - name: Upload DAST Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-report-${{ env.VERSION_TAG }}
+          path: ./zap_baseline_report.html
+  
+
+  ci:
+    name: Build & Package
+    runs-on: ubuntu-latest
+    needs: [sast, dast]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
-      - name: 安装依赖
+      - name: Install dependencies
         run: npm ci
 
-      - name: 代码检查
+      - name: Lint code
         run: npm run lint
 
-      - name: 构建项目
+      - name: Build project
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.EC2_HOST }}
 
-      - name: 创建部署包
+      - name: Create deployment package
         run: |
           tar -czf deploy.tar.gz \
             .next \
@@ -40,7 +117,7 @@ jobs:
             next.config.ts \
             ecosystem.config.js
 
-      - name: 上传构建产物
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: web-build
@@ -52,13 +129,13 @@ jobs:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
-      - name: 下载构建产物
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: web-build
           path: .
 
-      - name: 初始化部署目录
+      - name: Initialize deployment directory
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -66,17 +143,17 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT || 22 }}
           script: |
-            # 创建应用目录
+            # Create application directories
             sudo mkdir -p /var/www/hdbpilot-admin/releases
             sudo mkdir -p /var/www/hdbpilot-admin/shared
             sudo chown -R $USER:$USER /var/www/hdbpilot-admin
 
-            # 备份当前版本（如果存在软链则先移除，稍后重建）
+            # Backup current version (remove symlink if it exists, will recreate later)
             if [ -L "/var/www/hdbpilot-admin/current" ]; then
               rm /var/www/hdbpilot-admin/current
             fi
 
-      - name: 上传构建文件
+      - name: Upload build files
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -86,7 +163,7 @@ jobs:
           source: "deploy.tar.gz"
           target: "/var/www/hdbpilot-admin/"
 
-      - name: 解压并启动服务
+      - name: Extract and start service
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -95,103 +172,103 @@ jobs:
           port: ${{ secrets.EC2_SSH_PORT || 22 }}
           script: |
             set -e
-            echo "=== 开始部署 ==="
+            echo "=== Starting Deployment ==="
 
-            # 进入应用目录
+            # Go to application directory
             cd /var/www/hdbpilot-admin
             pwd
             ls -la
 
-            # 创建时间戳和目录
+            # Create timestamp and directory
             TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-            echo "时间戳: $TIMESTAMP"
+            echo "Timestamp: $TIMESTAMP"
 
-            # 确保releases目录存在
-            echo "创建releases目录..."
+            # Ensure releases directory exists
+            echo "Creating releases directory..."
             mkdir -p releases
 
-            # 创建完整路径的新版本目录
+            # Create new release directory with full path
             NEW_RELEASE="/var/www/hdbpilot-admin/releases/$TIMESTAMP"
-            echo "创建新版本目录: $NEW_RELEASE"
+            echo "Creating new release directory: $NEW_RELEASE"
             mkdir -p "$NEW_RELEASE"
 
-            # 验证目录是否创建成功
+            # Verify directory creation
             if [ ! -d "$NEW_RELEASE" ]; then
-              echo "错误: 无法创建目录 $NEW_RELEASE"
+              echo "Error: Failed to create directory $NEW_RELEASE"
               exit 1
             fi
 
-            # 解压文件
-            echo "解压部署文件到: $NEW_RELEASE"
+            # Extract files
+            echo "Extracting deployment files to: $NEW_RELEASE"
             tar -xzf deploy.tar.gz -C "$NEW_RELEASE" --strip-components=0
 
-            # 进入新版本目录
+            # Enter new release directory
             cd "$NEW_RELEASE"
-            echo "当前目录: $(pwd)"
-            echo "目录内容:"
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
             ls -la
 
-            # 检查必要文件
+            # Check required files
             if [ ! -f "package.json" ]; then
-              echo "错误: package.json 文件不存在"
+              echo "Error: package.json file not found"
               exit 1
             fi
 
-            # 处理package-lock.json
+            # Handle package-lock.json
             if [ ! -f "package-lock.json" ]; then
-              echo "生成 package-lock.json..."
+              echo "Generating package-lock.json..."
               npm install --package-lock-only
             fi
 
-            # 安装依赖
-            echo "安装生产依赖..."
+            # Install production dependencies
+            echo "Installing production dependencies..."
             npm install --production
 
-            # 返回应用根目录
+            # Go back to application root
             cd /var/www/hdbpilot-admin
 
-            # 创建日志目录
-            echo "创建日志目录..."
+            # Create logs directory
+            echo "Creating logs directory..."
             mkdir -p shared/logs
 
-            # 创建软链接
-            echo "创建软链接..."
+            # Create symlink
+            echo "Creating symlink..."
             rm -f current
             ln -sf "releases/$TIMESTAMP" current
 
-            # 验证软链接
+            # Verify symlink
             if [ ! -L "current" ]; then
-              echo "错误: 软链接创建失败"
+              echo "Error: Failed to create symlink"
               exit 1
             fi
 
-            # PM2 管理
-            echo "管理PM2进程..."
-            pm2 stop hdbpilot-admin 2>/dev/null || echo "没有找到运行中的进程"
-            pm2 delete hdbpilot-admin 2>/dev/null || echo "没有找到要删除的进程"
+            # PM2 management
+            echo "Managing PM2 process..."
+            pm2 stop hdbpilot-admin 2>/dev/null || echo "No running process found"
+            pm2 delete hdbpilot-admin 2>/dev/null || echo "No process to delete"
 
-            # 启动应用
-            echo "启动新应用..."
+            # Start application
+            echo "Starting new application..."
             if [ -f "current/ecosystem.config.js" ]; then
               pm2 start current/ecosystem.config.js
               pm2 save
             else
-              echo "错误: ecosystem.config.js 文件不存在"
+              echo "Error: ecosystem.config.js file not found"
               exit 1
             fi
 
-            # 检查nginx并重新加载
-            echo "重新加载nginx..."
+            # Check nginx and reload
+            echo "Reloading nginx..."
             sudo nginx -t && sudo systemctl reload nginx
 
-            # 清理
-            echo "清理旧版本和部署文件..."
+            # Cleanup
+            echo "Cleaning up old releases and deployment file..."
             cd releases && ls -t | tail -n +6 | xargs -I {} rm -rf {} 2>/dev/null || true
             cd /var/www/hdbpilot-admin && rm -f deploy.tar.gz
 
-            echo "=== 部署完成 ==="
+            echo "=== Deployment Completed ==="
 
-      - name: 健康检查
+      - name: Health check
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -199,22 +276,22 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT || 22 }}
           script: |
-            # 等待服务启动
+            # Wait for the service to start
             sleep 10
 
-            # 检查服务状态
+            # Check service status
             if pm2 show hdbpilot-admin | grep -q "online"; then
-              echo "✅ 应用部署成功，服务正在运行"
+              echo "✅ Application deployed successfully and is running"
             else
-              echo "❌ 应用部署失败，服务未正常启动"
+              echo "❌ Deployment failed, service not running"
               pm2 logs hdbpilot-admin --lines 20
               exit 1
             fi
 
-            # 检查 nginx 状态
+            # Check nginx status
             if sudo systemctl is-active nginx | grep -q "active"; then
-              echo "✅ Nginx 服务正常"
+              echo "✅ Nginx service is active"
             else
-              echo "❌ Nginx 服务异常"
+              echo "❌ Nginx service is inactive"
               exit 1
-            fi 
+            fi
