@@ -81,34 +81,11 @@ jobs:
           name: dast-report-${{ env.VERSION_TAG }}
           path: ./zap_baseline_report.html
   
-  linting:
-    name: Linting Report
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # - name: Install Dependencies
-      #   run: npm ci
-
-      - name: Install JSHint
-        run: sudo npm install -g jshint
-
-      - name: Run JSHint Scan
-        run: |
-          mkdir -p ./JSHint-report
-          jshint . --reporter=checkstyle > ./JSHint-report/jshint-report.xml || true
-
-      - name: Upload Linting Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: linting-report-${{ env.VERSION_TAG }}
-          path: ./JSHint-report
 
   ci:
     name: Build & Package
     runs-on: ubuntu-latest
-    needs: [sast, dast, linting]
+    needs: [sast, dast]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
