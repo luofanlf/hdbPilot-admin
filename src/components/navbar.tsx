@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
 
 export default function Navbar() {
-  const { user, loading, logout } = useAuth()
+  const { user, loading} = useAuth()
 
   // 渲染右侧按钮区域
   const renderAuthButtons = () => {//定义了一个名为renderAuthButton的函数
