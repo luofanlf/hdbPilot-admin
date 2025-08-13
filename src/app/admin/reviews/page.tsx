@@ -53,7 +53,6 @@ export default function ReviewPage() {
             }
         }
         void fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchTerm, currentPage])
 
     const sortedReviews = [...reviews].sort((a, b) =>
