@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  poweredByHeader: false, // 关闭 x-powered-by
+  
   // 开发环境API代理配置
   async rewrites() {
     return [

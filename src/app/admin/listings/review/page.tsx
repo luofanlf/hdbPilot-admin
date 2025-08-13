@@ -102,6 +102,7 @@ const PendingPropertyTable: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString();
