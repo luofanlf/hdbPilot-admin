@@ -30,7 +30,7 @@ export default function Home() {
         login()
         
         // 跳转到首页
-        router.push("/admin/users")
+        router.push("/admin/dashboard")
       } else {
         // 失败：code != 0
         setError(data.message || "登录失败")
