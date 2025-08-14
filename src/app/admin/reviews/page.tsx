@@ -27,33 +27,78 @@ export default function ReviewPage() {
     const [jumpPage, setJumpPage] = useState('')
     const [total, setTotal] = useState(0)
 
-    // Fetch data from backend
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true)
-            setErrorMsg(null)
-            try {
-                const query = new URLSearchParams({
-                    search: searchTerm,
-                    page: currentPage.toString(),
-                    size: REVIEWS_PER_PAGE.toString(),
-                })
-                const res = await fetch(`/api/comments?${query.toString()}`)
-                if (!res.ok) throw new Error(`Error: ${res.status}`)
-                const json = await res.json()
-                setReviews(json.data ?? [])
-                setTotal(json.total ?? 0)
-                setSelected(new Set()) // Clear selection when switching pages/searching
-            } catch (e) {
-                setErrorMsg(e instanceof Error ? e.message : 'Unknown error')
-                setReviews([])
-                setTotal(0)
-            } finally {
-                setLoading(false)
-            }
+    // Extract fetchData
+    const fetchData = async (page = currentPage) => {
+        setLoading(true)
+        setErrorMsg(null)
+        try {
+            const query = new URLSearchParams({
+                search: searchTerm,
+                page: page.toString(),
+                size: REVIEWS_PER_PAGE.toString(),
+            })
+            const res = await fetch(`/api/comments?${query.toString()}`)
+            if (!res.ok) throw new Error(`Error: ${res.status}`)
+            const json = await res.json()
+            setReviews(json.data ?? [])
+            setTotal(json.total ?? 0)
+        } catch (e) {
+            setErrorMsg(e instanceof Error ? e.message : 'Unknown error')
+            setReviews([])
+            setTotal(0)
+        } finally {
+            setLoading(false)
         }
+    }
+
+// useEffect only calls fetchData
+    useEffect(() => {
         void fetchData()
     }, [searchTerm, currentPage])
+
+// Modify confirmDelete
+    const confirmDelete = async () => {
+        setShowConfirm(false)
+        setLoading(true)
+        setErrorMsg(null)
+        setSuccessMsg(null)
+        const idsToDelete = Array.from(selected)
+        try {
+            const res = await fetch('/api/comments/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: idsToDelete }),
+            })
+            if (!res.ok) throw new Error(`Delete failed with status code: ${res.status}`)
+            setSuccessMsg('Selected reviews deleted successfully')
+            setTimeout(() => setSuccessMsg(null), 5000)
+
+            // Update total
+            const newTotal = total - idsToDelete.length
+            setTotal(newTotal)
+
+            // Update selected
+            const remainingSelected = new Set(
+                Array.from(selected).filter(id => !idsToDelete.includes(id))
+            )
+            setSelected(remainingSelected)
+
+            // Calculate new total pages
+            const newTotalPages = Math.max(1, Math.ceil(newTotal / REVIEWS_PER_PAGE))
+            const newPage = Math.min(currentPage, newTotalPages)
+            setCurrentPage(newPage)
+
+            //  Refetch data
+            await fetchData(newPage)
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Unknown error'
+            setErrorMsg(message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+
 
     const sortedReviews = [...reviews].sort((a, b) =>
         sortDesc
@@ -89,34 +134,7 @@ export default function ReviewPage() {
         setShowConfirm(true)
     }
 
-    const confirmDelete = async () => {
-        setShowConfirm(false)
-        setLoading(true)
-        setErrorMsg(null)
-        setSuccessMsg(null)
-        try {
-            const res = await fetch('/api/comments/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: Array.from(selected) }),
-            })
-            if (!res.ok) throw new Error(`Delete failed with status code: ${res.status}`)
-            setSuccessMsg('Selected reviews deleted successfully')
-            const newTotal = total - selected.size
-            const newTotalPages = Math.ceil(newTotal / REVIEWS_PER_PAGE)
-            if (currentPage > newTotalPages && newTotalPages > 0) {
-                setCurrentPage(newTotalPages)
-            } else {
-                setCurrentPage(currentPage)
-            }
-            setSelected(new Set())
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Unknown error'
-            setErrorMsg(message)
-        } finally {
-            setLoading(false)
-        }
-    }
+
 
     const cancelDelete = () => {
         setShowConfirm(false)
@@ -145,6 +163,10 @@ export default function ReviewPage() {
         setSearchTerm(keyword)
     }
 
+    const selectedCountTotal = selected.size
+    const selectedCountCurrentPage = sortedReviews.filter(r => selected.has(r.id)).length
+
+
     return (
         <div className="p-6">
             {/* Search bar */}
@@ -172,12 +194,13 @@ export default function ReviewPage() {
                             {sortedReviews.every(r => selected.has(r.id)) ? 'Unselect All' : 'Select All'}
                         </Button>
                     )}
-                    {selected.size > 0 && (
+                    {selectedCountTotal > 0 && (
                         <Button variant="destructive" onClick={onDeleteClick} disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Delete Selected ({selected.size})
+                            Delete Selected (Total selected: {selectedCountTotal}, Current page: {selectedCountCurrentPage})
                         </Button>
                     )}
+
                 </div>
             </div>
 
